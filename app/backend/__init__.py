@@ -1,1 +1,0 @@
-"""Backend package for the Capsule Player desktop widget."""
