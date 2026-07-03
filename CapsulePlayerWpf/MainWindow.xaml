@@ -4,10 +4,12 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:CapsulePlayerWpf"
+        xmlns:tb="http://www.hardcodet.net/taskbar"
         mc:Ignorable="d"
-        Title="Capsule Player" Height="160" Width="600"
+        Title="Capsule Player" SizeToContent="WidthAndHeight"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ResizeMode="NoResize" MouseDown="Window_MouseDown"
+        ShowInTaskbar="False"
         FontFamily="Segoe UI">
     <Window.Resources>
         <Style x:Key="ModernSliderStyle" TargetType="Slider">
@@ -51,7 +53,23 @@
             </Setter>
         </Style>
     </Window.Resources>
-    <Grid Margin="20,10,20,30">
+    <Grid Width="600" Margin="20,10,20,30">
+        <Grid.LayoutTransform>
+            <ScaleTransform x:Name="AppScaleTransform" ScaleX="1.0" ScaleY="1.0"/>
+        </Grid.LayoutTransform>
+        
+        <tb:TaskbarIcon x:Name="TrayIcon"
+                        ToolTipText="Capsule Player"
+                        TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick">
+            <tb:TaskbarIcon.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Settings" Click="MenuItemSettings_Click" />
+                    <Separator />
+                    <MenuItem Header="Exit" Click="MenuItemExit_Click" />
+                </ContextMenu>
+            </tb:TaskbarIcon.ContextMenu>
+        </tb:TaskbarIcon>
+
         <Border CornerRadius="16" Background="#C0141414" BorderBrush="#14FFFFFF" BorderThickness="1">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="30" ShadowDepth="10" Direction="270" Opacity="0.5" />
@@ -78,7 +96,6 @@
                 <StackPanel Grid.Column="1" Margin="14,0,14,0" VerticalAlignment="Center">
                     <TextBlock x:Name="TitleText" Text="To be built" Foreground="White" FontSize="16" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
                     <TextBlock x:Name="ArtistText" Text="No media data available yet" Foreground="#B3B3B3" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
-                    <TextBlock x:Name="StatusText" Text="Media bridge is to be built." Foreground="#B3B3B3" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                 </StackPanel>
                 
                 <!-- Controls -->
