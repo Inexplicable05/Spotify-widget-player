@@ -1,0 +1,1 @@
+"""Shared application types and contracts for the Capsule Player."""
