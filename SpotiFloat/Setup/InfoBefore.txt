@@ -1,0 +1,16 @@
+Welcome to SpotiFloat!
+
+SpotiFloat is a beautiful, ultra-sleek floating Spotify widget for Windows that sits elegantly on your desktop (or taskbar) and gives you instant, tactile control over your music. 
+
+Features:
+- Micro-Interactions: Beautiful bounce physics on all buttons.
+- Dynamic Theming: Hot-swap between Dark, Light, and a frosted Glass Morphism theme!
+- Always on Top: Keeps the widget above all other windows (can be toggled off).
+- Auto-Hide on Fullscreen: Automatically vanishes when you watch YouTube or play games.
+
+How to Use:
+1. Move: Click and drag the widget anywhere on your screen.
+2. Settings: Right-click the player or right-click the system tray icon to open the Settings menu.
+3. Theme: Open Settings and use the dropdown to switch themes instantly.
+
+Enjoy!

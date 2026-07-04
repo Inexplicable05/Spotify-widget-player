@@ -1,0 +1,37 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:System="clr-namespace:System;assembly=mscorlib">
+    <!-- Glass Theme (Translucent) -->
+    <LinearGradientBrush x:Key="AppBackground" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#40FFFFFF" Offset="0" />
+        <GradientStop Color="#10FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AppBorder" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#60FFFFFF" Offset="0" />
+        <GradientStop Color="#10FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="AlbumArtBackground" Color="#2AFFFFFF" />
+    <SolidColorBrush x:Key="AlbumArtBorder" Color="#24FFFFFF" />
+    
+    <SolidColorBrush x:Key="PrimaryTextForeground" Color="White" />
+    <SolidColorBrush x:Key="SecondaryTextForeground" Color="#E0E0E0" />
+    
+    <SolidColorBrush x:Key="ButtonBackground" Color="#24FFFFFF" />
+    <!-- Settings UI Colors -->
+    <SolidColorBrush x:Key="SettingsPopupBackground" Color="#B3121212" /> <!-- 70% Dark for readability -->
+    <SolidColorBrush x:Key="SettingsPopupBorder" Color="#40FFFFFF" /> <!-- White/25 -->
+    <SolidColorBrush x:Key="SettingsElementBackground" Color="#26FFFFFF" /> <!-- White/15 -->
+    <SolidColorBrush x:Key="SettingsElementHover" Color="#40FFFFFF" /> <!-- White/25 -->
+    <SolidColorBrush x:Key="SettingsElementBorder" Color="#33FFFFFF" /> <!-- White/20 -->
+    <SolidColorBrush x:Key="SettingsIconForeground" Color="#B3FFFFFF" /> <!-- White/70 -->
+    <SolidColorBrush x:Key="ButtonIconForeground" Color="White" />
+    
+    <SolidColorBrush x:Key="SliderTrackBackground" Color="#44FFFFFF" />
+    <SolidColorBrush x:Key="SliderTrackHover" Color="#88FFFFFF" />
+    <SolidColorBrush x:Key="SliderThumb" Color="White" />
+    
+    <SolidColorBrush x:Key="TooltipBackground" Color="#80282828" />
+    <SolidColorBrush x:Key="TooltipForeground" Color="White" />
+    
+    <System:Double x:Key="WindowShadowOpacity">0.6</System:Double>
+</ResourceDictionary>
