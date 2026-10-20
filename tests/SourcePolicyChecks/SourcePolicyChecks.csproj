@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../SpotiFloat/SupportedMusicSources.cs" Link="SupportedMusicSources.cs" />
+    <Compile Include="../../SpotiFloat/ProcessAudioCapture.cs" Link="ProcessAudioCapture.cs" />
+    <Compile Include="../../SpotiFloat/AudioProcessor.cs" Link="AudioProcessor.cs" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+</Project>

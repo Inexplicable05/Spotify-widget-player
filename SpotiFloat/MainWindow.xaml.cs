@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -59,8 +60,7 @@ namespace SpotiFloat
         private GlobalSystemMediaTransportControlsSessionManager? _manager;
         private GlobalSystemMediaTransportControlsSession?        _currentSession;
         private DispatcherTimer _timer;
-        private DispatcherTimer _processCheckTimer;
-        private bool   _isSpotifyRunning;
+        private DispatcherTimer _sessionCheckTimer;
         private string _lastTrackTitle = string.Empty;
         private DateTime _lastSeekTime = DateTime.MinValue;
         private MediaState? _lastState;
@@ -85,9 +85,9 @@ namespace SpotiFloat
             _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             _timer.Tick += Timer_Tick;
 
-            _processCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            _processCheckTimer.Tick += ProcessCheckTimer_Tick;
-            _processCheckTimer.Start();
+            _sessionCheckTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _sessionCheckTimer.Tick += SessionCheckTimer_Tick;
+            _sessionCheckTimer.Start();
 
             Loaded += MainWindow_Loaded;
         }
@@ -138,8 +138,6 @@ namespace SpotiFloat
             if (_lastState != null)
                 newControl.UpdateMediaState(_lastState);
 
-            // Start AudioProcessor (idempotent)
-            AudioProcessor.Instance.Start();
         }
 
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -174,10 +172,9 @@ namespace SpotiFloat
         // Visibility / Z-Order
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-        private void ProcessCheckTimer_Tick(object? sender, EventArgs e)
+        private void SessionCheckTimer_Tick(object? sender, EventArgs e)
         {
-            _isSpotifyRunning = Process.GetProcessesByName("Spotify").Length > 0;
-            UpdateVisibility();
+            UpdateCurrentSession();
         }
 
         private bool IsFullscreenAppActive()
@@ -199,7 +196,7 @@ namespace SpotiFloat
 
         private void UpdateVisibility()
         {
-            bool show = _isSpotifyRunning;
+            bool show = _currentSession != null;
             if (show && ZOrder == WidgetZOrder.Topmost && HideOnFullscreen && IsFullscreenAppActive())
                 show = false;
 
@@ -208,7 +205,7 @@ namespace SpotiFloat
             else if (!show && Visibility == Visibility.Visible)
             {
                 Visibility = Visibility.Hidden;
-                if (!_isSpotifyRunning) _settingsWindow?.Close();
+                if (_currentSession == null) _settingsWindow?.Close();
             }
         }
 
@@ -238,7 +235,7 @@ namespace SpotiFloat
             WpfApp.Current.Resources.MergedDictionaries.Clear();
             WpfApp.Current.Resources.MergedDictionaries.Add(dict);
 
-            // Activate saved layout (this also starts AudioProcessor)
+            // Activate saved layout.
             SwitchLayout(s.Layout);
 
             // Media session
@@ -249,6 +246,8 @@ namespace SpotiFloat
                 {
                     _manager.CurrentSessionChanged += (_, _) =>
                         Dispatcher.Invoke(UpdateCurrentSession);
+                    _manager.SessionsChanged += (_, _) =>
+                        Dispatcher.Invoke(UpdateCurrentSession);
                     UpdateCurrentSession();
                 }
             }
@@ -258,28 +257,56 @@ namespace SpotiFloat
         private void UpdateCurrentSession()
         {
             if (_manager == null) return;
-            var newSession = _manager.GetCurrentSession();
+            GlobalSystemMediaTransportControlsSession? newSession;
+            string? audioAppId = null;
+            bool audioPlaying = false;
+            try
+            {
+                var sessions = _manager.GetSessions()
+                    .Where(s => SupportedMusicSources.IsAllowed(s.SourceAppUserModelId)).ToList();
+                var preferred = _manager.GetCurrentSession();
+                bool IsPlaying(GlobalSystemMediaTransportControlsSession s) =>
+                    s.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+                newSession = sessions.FirstOrDefault(s => s == preferred && IsPlaying(s))
+                    ?? sessions.FirstOrDefault(s => s == _currentSession && IsPlaying(s))
+                    ?? sessions.FirstOrDefault(IsPlaying)
+                    ?? sessions.FirstOrDefault(s => s == _currentSession)
+                    ?? sessions.FirstOrDefault();
+                audioAppId = newSession?.SourceAppUserModelId;
+                audioPlaying = newSession != null && IsPlaying(newSession);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Media session selection failed: {ex}");
+                newSession = null;
+            }
             if (_currentSession != newSession)
             {
                 if (_currentSession != null)
                 {
-                    _currentSession.MediaPropertiesChanged -= (_, _) =>
-                        Dispatcher.Invoke(UpdateMediaState);
-                    _currentSession.PlaybackInfoChanged -= (_, _) =>
-                        Dispatcher.Invoke(UpdateMediaState);
+                    _currentSession.MediaPropertiesChanged -= Session_MediaPropertiesChanged;
+                    _currentSession.PlaybackInfoChanged -= Session_PlaybackInfoChanged;
                 }
                 _currentSession = newSession;
+                _lastTrackTitle = string.Empty;
+                _lastState = null;
                 if (_currentSession != null)
                 {
-                    _currentSession.MediaPropertiesChanged += (_, _) =>
-                        Dispatcher.Invoke(UpdateMediaState);
-                    _currentSession.PlaybackInfoChanged += (_, _) =>
-                        Dispatcher.Invoke(UpdateMediaState);
+                    _currentSession.MediaPropertiesChanged += Session_MediaPropertiesChanged;
+                    _currentSession.PlaybackInfoChanged += Session_PlaybackInfoChanged;
                 }
             }
             UpdateMediaState();
+            AudioProcessor.Instance.SetSource(audioAppId, audioPlaying);
+            UpdateVisibility();
             if (_currentSession != null) _timer.Start(); else _timer.Stop();
         }
+
+        private void Session_MediaPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args)
+            => Dispatcher.Invoke(UpdateMediaState);
+
+        private void Session_PlaybackInfoChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args)
+            => Dispatcher.Invoke(UpdateCurrentSession);
 
         private void Timer_Tick(object? sender, EventArgs e)
         {
@@ -326,9 +353,11 @@ namespace SpotiFloat
 
             try
             {
-                var props      = await _currentSession.TryGetMediaPropertiesAsync();
-                var playback   = _currentSession.GetPlaybackInfo();
-                var timeline   = _currentSession.GetTimelineProperties();
+                var session = _currentSession;
+                var props      = await session.TryGetMediaPropertiesAsync();
+                if (session != _currentSession) return;
+                var playback   = session.GetPlaybackInfo();
+                var timeline   = session.GetTimelineProperties();
 
                 bool isPlaying = playback?.PlaybackStatus ==
                     GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
@@ -364,6 +393,7 @@ namespace SpotiFloat
                     art = bmp;
                 }
 
+                if (session != _currentSession) return;
                 string title = props?.Title ?? "Unknown Title";
                 bool   isNew = title != _lastTrackTitle;
                 _lastTrackTitle = title;
@@ -414,7 +444,6 @@ namespace SpotiFloat
 
         private void MenuItemExit_Click(object sender, RoutedEventArgs e)
         {
-            AudioProcessor.Instance.Dispose();
             WpfApp.Current.Shutdown();
         }
 

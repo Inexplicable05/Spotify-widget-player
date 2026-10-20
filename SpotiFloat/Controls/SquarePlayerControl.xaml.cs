@@ -23,7 +23,6 @@ namespace SpotiFloat.Controls
         private readonly System.Windows.Shapes.Rectangle[] _bars = new System.Windows.Shapes.Rectangle[BarCount];
         private readonly float[]     _smoothBands = new float[BarCount];
         private DispatcherTimer?     _vizTimer;
-        private DateTime             _lastTick = DateTime.Now;
         private SizeChangedEventHandler? _visualizerSizeChangedHandler;
 
         public SquarePlayerControl()
@@ -107,14 +106,6 @@ namespace SpotiFloat.Controls
 
         private void VizTimer_Tick(object? sender, EventArgs e)
         {
-            var now   = DateTime.Now;
-            double dt = (now - _lastTick).TotalSeconds;
-            _lastTick = now;
-
-            AudioProcessor.Instance.IsPlaying = _isPlaying;
-            if (!AudioProcessor.Instance.IsCapturingReal)
-                AudioProcessor.Instance.TickSimulation(dt);
-
             // Lerp displayed bars toward audio data — larger multiplier = taller, more energetic bars
             var bands = AudioProcessor.Instance.FrequencyBands;
             double maxH = VisualizerCanvas.ActualHeight > 0 ? VisualizerCanvas.ActualHeight : 70;

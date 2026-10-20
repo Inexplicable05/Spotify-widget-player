@@ -44,7 +44,6 @@ namespace SpotiFloat.Controls
 
         // â”€â”€ Visualizer timer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         private DispatcherTimer? _vizTimer;
-        private DateTime         _lastTick = DateTime.Now;
 
         public DiskPlayerControl()
         {
@@ -149,14 +148,6 @@ namespace SpotiFloat.Controls
 
         private void VizTimer_Tick(object? sender, EventArgs e)
         {
-            var now = DateTime.Now;
-            double dt = (now - _lastTick).TotalSeconds;
-            _lastTick = now;
-
-            AudioProcessor.Instance.IsPlaying = _isPlaying;
-            if (!AudioProcessor.Instance.IsCapturingReal)
-                AudioProcessor.Instance.TickSimulation(dt);
-
             UpdateWaveform();
             UpdateArc();
         }

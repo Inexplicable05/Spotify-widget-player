@@ -1,232 +1,177 @@
 using System;
 using System.Diagnostics;
-using NAudio.Wave;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
 using NAudio.Dsp;
 
-namespace SpotiFloat
+namespace SpotiFloat;
+
+public sealed class AudioProcessor : IDisposable
 {
-    /// <summary>
-    /// Singleton that captures system audio output via WASAPI loopback and
-    /// provides real-time frequency band data (for bar visualizer) and
-    /// waveform point data (for disk waveform visualizer).
-    /// Silently falls back to simulated data if WASAPI capture is unavailable.
-    /// </summary>
-    public sealed class AudioProcessor : IDisposable
+    private static readonly Lazy<AudioProcessor> _instance = new(() => new AudioProcessor());
+    public static AudioProcessor Instance => _instance.Value;
+    public const int BandCount = 28;
+    public const int WaveformCount = 64;
+    private const int FftSize = 1024;
+    public float[] FrequencyBands { get; } = new float[BandCount];
+    public float[] WaveformPoints { get; } = new float[WaveformCount];
+    public bool IsCapturingReal { get; private set; }
+    private readonly object _lock = new();
+    private readonly Complex[] _fftBuffer = new Complex[FftSize];
+    private readonly float[] _samples = new float[FftSize];
+    private int _sampleIndex;
+    private int _processId;
+    private CancellationTokenSource? _cancellation;
+    private Task? _captureTask;
+    private bool _disposed;
+
+    private AudioProcessor() { }
+
+    public void SetSource(string? appId, bool isPlaying)
     {
-        // ── Singleton ─────────────────────────────────────────────────────────
-        private static readonly Lazy<AudioProcessor> _instance =
-            new(() => new AudioProcessor());
-        public static AudioProcessor Instance => _instance.Value;
-
-        // ── Public Data (read on UI thread, written on audio thread) ──────────
-        public const int BandCount     = 28;
-        public const int WaveformCount = 64;
-
-        private readonly float[] _bands         = new float[BandCount];
-        private readonly float[] _bandTargets   = new float[BandCount];
-        private readonly float[] _waveform       = new float[WaveformCount];
-        private readonly float[] _waveformTarget = new float[WaveformCount];
-        private readonly object  _lock           = new();
-
-        // Thread-safe snapshots the UI reads each frame
-        public float[] FrequencyBands { get; } = new float[BandCount];
-        public float[] WaveformPoints { get; } = new float[WaveformCount];
-        public bool IsCapturingReal   { get; private set; }
-        public bool IsPlaying         { get; set; } // set by MainWindow
-
-        // ── NAudio ────────────────────────────────────────────────────────────
-        private WasapiLoopbackCapture? _capture;
-        private bool _disposed;
-
-        // FFT
-        private const int FftSize     = 1024;
-        private readonly Complex[]   _fftBuffer   = new Complex[FftSize];
-        private readonly float[]     _sampleAccum = new float[FftSize];
-        private int _sampleIndex;
-
-        // ── Simulation (fallback) ─────────────────────────────────────────────
-        private readonly Random     _rng        = new();
-        private readonly float[]    _simBands   = new float[BandCount];
-        private readonly float[]    _simWave    = new float[WaveformCount];
-        private double              _simTime;
-
-        private AudioProcessor() { }
-
-        // ─────────────────────────────────────────────────────────────────────
-        // Start / Stop
-        // ─────────────────────────────────────────────────────────────────────
-
-        public void Start()
+        int processId = isPlaying ? FindAudioProcess(appId) : 0;
+        lock (_lock)
         {
-            if (_capture != null || _disposed) return;
-            try
-            {
-                _capture                    = new WasapiLoopbackCapture();
-                _capture.DataAvailable      += OnDataAvailable;
-                _capture.RecordingStopped   += OnRecordingStopped;
-                _capture.StartRecording();
-                IsCapturingReal = true;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[AudioProcessor] WASAPI start failed: {ex.Message}. Using simulation.");
-                _capture        = null;
-                IsCapturingReal = false;
-            }
+            if (_disposed || (processId == _processId && _captureTask is { IsCompleted: false })) return;
+            _cancellation?.Cancel();
+            _cancellation = null;
+            _processId = processId;
+            IsCapturingReal = false;
+            Clear();
+            if (processId == 0) return;
+            var cancellation = new CancellationTokenSource();
+            _cancellation = cancellation;
+            _captureTask = Task.Run(() => CaptureAsync(processId, cancellation));
         }
+    }
 
-        public void Stop()
+    private async Task CaptureAsync(int processId, CancellationTokenSource cancellation)
+    {
+        try
         {
-            try { _capture?.StopRecording(); } catch { }
+            await ProcessAudioCapture.RunAsync(processId, samples =>
+            {
+                lock (_lock)
+                    if (_cancellation == cancellation && !cancellation.IsCancellationRequested)
+                        ProcessSamples(samples);
+            }, () =>
+            {
+                lock (_lock)
+                    if (_cancellation == cancellation && !cancellation.IsCancellationRequested)
+                        IsCapturingReal = true;
+            }, cancellation.Token).ConfigureAwait(false);
         }
-
-        // ─────────────────────────────────────────────────────────────────────
-        // WASAPI callback
-        // ─────────────────────────────────────────────────────────────────────
-
-        private void OnDataAvailable(object? sender, WaveInEventArgs e)
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (Exception ex) { Debug.WriteLine($"Application audio capture failed for PID {processId}: {ex}"); }
+        finally
         {
-            // e.Buffer contains interleaved float32 samples (2ch typically)
-            int bytesPerSample = _capture!.WaveFormat.BitsPerSample / 8;
-            int channels       = _capture.WaveFormat.Channels;
-            int stride         = bytesPerSample * channels;
-
-            for (int offset = 0; offset + stride <= e.BytesRecorded; offset += stride)
-            {
-                // Mono-mix: average channels
-                float sample = 0;
-                for (int ch = 0; ch < channels; ch++)
-                    sample += BitConverter.ToSingle(e.Buffer, offset + ch * bytesPerSample);
-                sample /= channels;
-
-                _sampleAccum[_sampleIndex] = sample;
-                _sampleIndex++;
-
-                if (_sampleIndex >= FftSize)
-                {
-                    _sampleIndex = 0;
-                    ProcessFft();
-                    ProcessWaveform(_sampleAccum);
-                }
-            }
-        }
-
-        private void ProcessFft()
-        {
-            // Fill complex FFT buffer with Hamming window
-            for (int i = 0; i < FftSize; i++)
-            {
-                double window = 0.54 - 0.46 * Math.Cos(2 * Math.PI * i / (FftSize - 1));
-                _fftBuffer[i].X = (float)(_sampleAccum[i] * window);
-                _fftBuffer[i].Y = 0;
-            }
-
-            FastFourierTransform.FFT(true, (int)Math.Log(FftSize, 2), _fftBuffer);
-
-            // Map FFT bins → BandCount frequency bands (logarithmic spacing)
-            int halfSize = FftSize / 2;
-            for (int b = 0; b < BandCount; b++)
-            {
-                // Log-spaced band edges from ~40Hz to ~16kHz
-                double freqLow  = 40  * Math.Pow(16000.0 / 40,  (double)b       / BandCount);
-                double freqHigh = 40  * Math.Pow(16000.0 / 40,  (double)(b + 1) / BandCount);
-                int    binLow   = (int)(freqLow  / (_capture!.WaveFormat.SampleRate / (double)FftSize));
-                int    binHigh  = (int)(freqHigh / (_capture.WaveFormat.SampleRate  / (double)FftSize));
-                binLow  = Math.Clamp(binLow,  1, halfSize - 1);
-                binHigh = Math.Clamp(binHigh, binLow + 1, halfSize);
-
-                float sum = 0;
-                for (int k = binLow; k < binHigh; k++)
-                {
-                    float mag = (float)Math.Sqrt(_fftBuffer[k].X * _fftBuffer[k].X +
-                                                  _fftBuffer[k].Y * _fftBuffer[k].Y);
-                    sum += mag;
-                }
-                float avg = sum / (binHigh - binLow);
-                // Scale and clamp to 0–1
-                _bandTargets[b] = Math.Clamp(avg * 8f, 0f, 1f);
-            }
-
             lock (_lock)
-                Array.Copy(_bandTargets, FrequencyBands, BandCount);
+            {
+                if (_cancellation == cancellation)
+                {
+                    _cancellation = null;
+                    IsCapturingReal = false;
+                    Clear();
+                }
+            }
+            cancellation.Dispose();
         }
+    }
 
-        private void ProcessWaveform(float[] samples)
+    internal static int FindAudioProcess(string? appId)
+    {
+        // shortcut: matches audio owners by executable name; add package matching if a player uses a differently named audio host.
+        var names = SupportedMusicSources.GetProcessNames(appId);
+        if (names.Length == 0 || !OperatingSystem.IsWindowsVersionAtLeast(10, 0, 20348)) return 0;
+        try
         {
-            // Downsample raw samples to WaveformCount points
+            using var devices = new MMDeviceEnumerator();
+            foreach (var device in devices.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
+            using (device)
+            {
+                var sessions = device.AudioSessionManager.Sessions;
+                for (int i = 0; i < sessions.Count; i++)
+                using (var session = sessions[i])
+                {
+                    if (session.State != AudioSessionState.AudioSessionStateActive || session.GetProcessID == 0) continue;
+                    try
+                    {
+                        using var process = Process.GetProcessById((int)session.GetProcessID);
+                        if (names.Contains(process.ProcessName, StringComparer.OrdinalIgnoreCase)) return process.Id;
+                    }
+                    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+                    {
+                        Debug.WriteLine($"Audio process is unavailable: {ex.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex) { Debug.WriteLine($"Music audio process lookup failed: {ex}"); }
+        return 0;
+    }
+
+    private void ProcessSamples(float[] samples)
+    {
+        for (int offset = 0; offset + ProcessAudioCapture.Channels <= samples.Length; offset += ProcessAudioCapture.Channels)
+        {
+            float sample = (samples[offset] + samples[offset + 1]) / 2;
+            _samples[_sampleIndex++] = float.IsFinite(sample) ? sample : 0;
+            if (_sampleIndex != FftSize) continue;
+            _sampleIndex = 0;
+            ProcessFft();
             int step = FftSize / WaveformCount;
             for (int i = 0; i < WaveformCount; i++)
             {
-                float avg = 0;
-                for (int j = 0; j < step; j++)
-                    avg += samples[i * step + j];
-                _waveformTarget[i] = Math.Clamp(avg / step, -1f, 1f);
+                float sum = 0;
+                for (int j = 0; j < step; j++) sum += _samples[i * step + j];
+                WaveformPoints[i] = Math.Clamp(sum / step, -1f, 1f);
             }
-            lock (_lock)
-                Array.Copy(_waveformTarget, WaveformPoints, WaveformCount);
         }
+    }
 
-        private void OnRecordingStopped(object? sender, StoppedEventArgs e)
+    private void ProcessFft()
+    {
+        for (int i = 0; i < FftSize; i++)
         {
-            if (e.Exception != null)
-                Debug.WriteLine($"[AudioProcessor] Recording stopped with error: {e.Exception.Message}");
+            double window = 0.54 - 0.46 * Math.Cos(2 * Math.PI * i / (FftSize - 1));
+            _fftBuffer[i].X = (float)(_samples[i] * window);
+            _fftBuffer[i].Y = 0;
         }
-
-        // ─────────────────────────────────────────────────────────────────────
-        // Simulation fallback — call this from CompositionTarget.Rendering
-        // when IsCapturingReal == false
-        // ─────────────────────────────────────────────────────────────────────
-
-        public void TickSimulation(double deltaSeconds)
+        FastFourierTransform.FFT(true, (int)Math.Log2(FftSize), _fftBuffer);
+        int halfSize = FftSize / 2;
+        for (int b = 0; b < BandCount; b++)
         {
-            if (IsCapturingReal) return;
-
-            _simTime += deltaSeconds;
-
-            if (!IsPlaying)
-            {
-                // Decay toward silence
-                for (int i = 0; i < BandCount; i++)
-                    FrequencyBands[i] = FrequencyBands[i] * 0.85f;
-                for (int i = 0; i < WaveformCount; i++)
-                    WaveformPoints[i] = WaveformPoints[i] * 0.9f;
-                return;
-            }
-
-            // Simulate bands — each band oscillates at its own rate
-            for (int i = 0; i < BandCount; i++)
-            {
-                double t = _simTime * (0.8 + i * 0.12);
-                double v = 0.35 + 0.55 * (0.5 + 0.5 * Math.Sin(t * 1.7 + i * 0.4))
-                                * (0.5 + 0.5 * Math.Sin(t * 3.1 + i * 0.9));
-                _simBands[i] = (float)v;
-            }
-            // Smooth toward simulated target
-            for (int i = 0; i < BandCount; i++)
-                FrequencyBands[i] += (_simBands[i] - FrequencyBands[i]) * 0.18f;
-
-            // Simulate waveform — sine wave that varies in amplitude
-            double amplitude = 0.4 + 0.5 * (0.5 + 0.5 * Math.Sin(_simTime * 0.7));
-            for (int i = 0; i < WaveformCount; i++)
-            {
-                double x = (double)i / WaveformCount;
-                _simWave[i] = (float)(amplitude * Math.Sin(x * Math.PI * 4 + _simTime * 3));
-            }
-            for (int i = 0; i < WaveformCount; i++)
-                WaveformPoints[i] += (_simWave[i] - WaveformPoints[i]) * 0.15f;
+            double low = 40 * Math.Pow(16000.0 / 40, (double)b / BandCount);
+            double high = 40 * Math.Pow(16000.0 / 40, (double)(b + 1) / BandCount);
+            int binLow = Math.Clamp((int)(low * FftSize / ProcessAudioCapture.SampleRate), 1, halfSize - 1);
+            int binHigh = Math.Clamp((int)(high * FftSize / ProcessAudioCapture.SampleRate), binLow + 1, halfSize);
+            float sum = 0;
+            for (int k = binLow; k < binHigh; k++)
+                sum += MathF.Sqrt(_fftBuffer[k].X * _fftBuffer[k].X + _fftBuffer[k].Y * _fftBuffer[k].Y);
+            FrequencyBands[b] = Math.Clamp(sum / (binHigh - binLow) * 8f, 0f, 1f);
         }
+    }
 
-        // ─────────────────────────────────────────────────────────────────────
-        // Dispose
-        // ─────────────────────────────────────────────────────────────────────
+    private void Clear()
+    {
+        Array.Clear(FrequencyBands);
+        Array.Clear(WaveformPoints);
+        Array.Clear(_samples);
+        _sampleIndex = 0;
+    }
 
-        public void Dispose()
+    public void Dispose()
+    {
+        lock (_lock)
         {
-            if (_disposed) return;
             _disposed = true;
-            try { _capture?.StopRecording(); } catch { }
-            _capture?.Dispose();
-            _capture = null;
+            _cancellation?.Cancel();
+            _cancellation = null;
+            IsCapturingReal = false;
+            Clear();
         }
     }
 }
