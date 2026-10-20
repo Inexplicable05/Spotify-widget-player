@@ -12,6 +12,13 @@ namespace SpotiFloat
         private MainWindow _mainWindow;
         private bool _isInitializing = false;
 
+        // ── Scale Scrubber State ──────────────────────────────────────────────
+        private bool _scrubbing = false;
+        private bool _scrubMoved = false;
+        private double _scrubStartX;
+        private double _scrubStartValue;
+        private bool _scrubEditMode = false;
+
         public SettingsWindow(MainWindow mainWindow)
         {
             InitializeComponent();
@@ -21,10 +28,12 @@ namespace SpotiFloat
             
             _isInitializing = true;
             UpdateThemeButtons(settings.ThemeIndex);
+            UpdateLayoutButtons(settings.Layout);
             LockCheckBox.IsChecked = settings.IsLocked;
             ZOrderComboBox.SelectedIndex = settings.ZOrder == WidgetZOrder.Topmost ? 0 : 1;
             HideOnFullscreenCheckBox.IsChecked = settings.HideOnFullscreen;
             HideFullscreenContainer.Visibility = settings.ZOrder == WidgetZOrder.Topmost ? Visibility.Visible : Visibility.Collapsed;
+            RunOnStartupCheckBox.IsChecked = settings.RunOnStartup;
             ScaleTextBox.Text = (settings.Scale * 100).ToString("0");
             DynamicTitleColourCheckBox.IsChecked = settings.EnableDynamicTitleColour;
             _isInitializing = false;
@@ -42,6 +51,35 @@ namespace SpotiFloat
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        // ── Layout button helpers ─────────────────────────────────────────────
+
+        private void UpdateLayoutButtons(PlayerLayout layout)
+        {
+            LayoutBarBtn.Background    = new SolidColorBrush(Colors.Transparent);
+            LayoutSquareBtn.Background = new SolidColorBrush(Colors.Transparent);
+            LayoutDiskBtn.Background   = new SolidColorBrush(Colors.Transparent);
+
+            var activeBrush = new SolidColorBrush(
+                System.Windows.Media.Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
+            if      (layout == PlayerLayout.Square) LayoutSquareBtn.Background = activeBrush;
+            else if (layout == PlayerLayout.Disk)   LayoutDiskBtn.Background   = activeBrush;
+            else                                     LayoutBarBtn.Background    = activeBrush;
+        }
+
+        private void LayoutBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is System.Windows.Controls.Button btn)) return;
+            var layout = btn.Tag?.ToString() switch
+            {
+                "1" => PlayerLayout.Square,
+                "2" => PlayerLayout.Disk,
+                _   => PlayerLayout.Bar
+            };
+            UpdateLayoutButtons(layout);
+            _mainWindow.SwitchLayout(layout);
+            SettingChanged(null!, null!);
         }
 
         // ── Theme button helpers ──────────────────────────────────────────────
@@ -171,6 +209,8 @@ namespace SpotiFloat
             int themeIndex = GetCurrentThemeIndex();
             _mainWindow.ThemeIndex = themeIndex;
 
+            var currentLayout = _mainWindow.Layout;
+
             var settings = new AppSettings
             {
                 ThemeIndex               = themeIndex,
@@ -178,7 +218,9 @@ namespace SpotiFloat
                 ZOrder                   = _mainWindow.ZOrder,
                 HideOnFullscreen         = _mainWindow.HideOnFullscreen,
                 Scale                    = GetScaleValue(),
-                EnableDynamicTitleColour = _mainWindow.EnableDynamicTitleColour
+                RunOnStartup             = RunOnStartupCheckBox.IsChecked == true,
+                EnableDynamicTitleColour = _mainWindow.EnableDynamicTitleColour,
+                Layout                   = currentLayout
             };
             
             SettingsManager.SaveSettings(settings);
@@ -194,17 +236,17 @@ namespace SpotiFloat
         {
             _isInitializing = true;
             UpdateThemeButtons(0);
+            UpdateLayoutButtons(PlayerLayout.Bar);
             LockCheckBox.IsChecked = false;
             ZOrderComboBox.SelectedIndex = 0;
             HideOnFullscreenCheckBox.IsChecked = false;
+            RunOnStartupCheckBox.IsChecked = false;
             ScaleTextBox.Text = "100";
             DynamicTitleColourCheckBox.IsChecked = true;
             _isInitializing = false;
 
-            // Restore Dynamic Title Colour toggle to unlocked state (theme 0 = Dark)
             UpdateDynamicTitleColourState(0);
-
-            // Apply Dark theme and save
+            _mainWindow.SwitchLayout(PlayerLayout.Bar);
             ThemeBtn_Click(ThemeDarkBtn, null!);
         }
 
@@ -225,6 +267,12 @@ namespace SpotiFloat
             System.Windows.Application.Current.Shutdown();
         }
 
+        private void GitHubBtn_Click(object sender, RoutedEventArgs e)
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "https://github.com/Inexplicable05") { UseShellExecute = true });
+        }
+
         private double GetScaleValue()
         {
             if (double.TryParse(ScaleTextBox.Text, out double percent))
@@ -239,12 +287,106 @@ namespace SpotiFloat
 
         private void ScaleTextBox_PreviewTextInput(object sender, System.Windows.Input.TextCompositionEventArgs e)
         {
+            // Only validate while in text edit mode (not while scrubbing)
+            if (!_scrubEditMode)
+            {
+                e.Handled = true;
+                return;
+            }
             e.Handled = !System.Text.RegularExpressions.Regex.IsMatch(e.Text, "[0-9]");
         }
 
         private void ScaleTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             SettingChanged(null!, null!);
+        }
+
+        // ── Scale Scrubber (Figma-style drag) ─────────────────────────────────
+
+        private void ScaleScrubber_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            var border = sender as System.Windows.Controls.Border;
+            if (border == null) return;
+
+            if (_scrubEditMode) return; // Already in text-edit mode — let it handle normally
+
+            _scrubStartX    = e.GetPosition(border).X;
+            _scrubStartValue = GetScaleValue() * 100;
+            _scrubMoved     = false;
+            _scrubbing      = true;
+            border.CaptureMouse();
+            e.Handled = true;
+        }
+
+        private void ScaleScrubber_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (!_scrubbing || e.LeftButton != System.Windows.Input.MouseButtonState.Pressed) return;
+
+            var border = sender as System.Windows.Controls.Border;
+            if (border == null) return;
+
+            double delta = e.GetPosition(border).X - _scrubStartX;
+
+            if (Math.Abs(delta) > 3)
+                _scrubMoved = true;
+
+            if (_scrubMoved)
+            {
+                double newVal = Math.Clamp(_scrubStartValue + delta, 10, 300);
+                _isInitializing = true;
+                ScaleTextBox.Text = ((int)newVal).ToString();
+                _isInitializing = false;
+                SettingChanged(null!, null!); // Apply scale live
+            }
+        }
+
+        private void ScaleScrubber_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (!_scrubbing) return;
+
+            var border = sender as System.Windows.Controls.Border;
+            border?.ReleaseMouseCapture();
+            _scrubbing = false;
+
+            if (!_scrubMoved)
+            {
+                // It was a click (no drag) — switch to text-edit mode
+                _scrubEditMode = true;
+                ScaleTextBox.IsReadOnly        = false;
+                ScaleTextBox.Cursor            = System.Windows.Input.Cursors.IBeam;
+                ScaleTextBox.IsHitTestVisible  = true;
+                ScaleTextBox.Focus();
+                ScaleTextBox.SelectAll();
+                if (border != null) border.Cursor = System.Windows.Input.Cursors.IBeam;
+            }
+            e.Handled = true;
+        }
+
+        private void ScaleScrubber_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            // If scrubbing exits the border, stop drag so it doesn't get stuck
+            if (_scrubbing && e.LeftButton != System.Windows.Input.MouseButtonState.Pressed)
+            {
+                var border = sender as System.Windows.Controls.Border;
+                border?.ReleaseMouseCapture();
+                _scrubbing = false;
+            }
+        }
+
+        private void ScaleTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            // Return to scrubber mode
+            _scrubEditMode                = false;
+            ScaleTextBox.IsReadOnly       = true;
+            ScaleTextBox.Cursor           = System.Windows.Input.Cursors.SizeWE;
+            ScaleTextBox.IsHitTestVisible = false;
+
+            // Restore border cursor
+            if (ScaleTextBox.Parent is System.Windows.Controls.Grid g &&
+                g.Parent is System.Windows.Controls.Border b)
+            {
+                b.Cursor = System.Windows.Input.Cursors.SizeWE;
+            }
         }
     }
 }

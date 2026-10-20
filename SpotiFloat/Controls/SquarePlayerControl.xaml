@@ -1,0 +1,192 @@
+<local:PlayerControlBase x:Class="SpotiFloat.Controls.SquarePlayerControl"
+                         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                         xmlns:local="clr-namespace:SpotiFloat.Controls"
+                         mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Controls/PlayerResources.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid x:Name="RootGrid"
+          Width="256"
+          Height="256"
+          Background="Transparent"
+          MouseEnter="OnMouseEnter"
+          MouseLeave="OnMouseLeave">
+        <Grid.LayoutTransform>
+            <ScaleTransform x:Name="PlayerScale" ScaleX="1.0" ScaleY="1.0"/>
+        </Grid.LayoutTransform>
+
+        <Border Width="240"
+                Height="240"
+                CornerRadius="14"
+                Background="{DynamicResource AppBackground}"
+                BorderBrush="{DynamicResource AppBorder}"
+                BorderThickness="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="18"
+                                  ShadowDepth="4"
+                                  Opacity="{DynamicResource WindowShadowOpacity}"/>
+            </Border.Effect>
+        </Border>
+
+        <Grid x:Name="CardGrid"
+              Width="240"
+              Height="240"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center">
+            <Grid.Clip>
+                <RectangleGeometry Rect="0,0,240,240" RadiusX="14" RadiusY="14"/>
+            </Grid.Clip>
+
+            <Border Background="{DynamicResource AlbumArtBackground}"/>
+
+            <Image x:Name="AlbumArtImage"
+                   Stretch="UniformToFill"
+                   RenderOptions.BitmapScalingMode="HighQuality"/>
+
+            <Image x:Name="AlbumArtBlur"
+                   Stretch="UniformToFill"
+                   Opacity="0"
+                   RenderOptions.BitmapScalingMode="HighQuality">
+                <Image.Effect>
+                    <BlurEffect Radius="8"/>
+                </Image.Effect>
+            </Image>
+
+            <Canvas x:Name="VisualizerCanvas"
+                    Height="72"
+                    Margin="14,0,14,7"
+                    VerticalAlignment="Bottom"
+                    IsHitTestVisible="False"/>
+
+            <Border VerticalAlignment="Bottom"
+                    Height="100"
+                    IsHitTestVisible="False">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="Transparent" Offset="0"/>
+                        <GradientStop Color="#DD000000" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+
+            <Grid x:Name="IdleProgressContainer"
+                  Height="4"
+                  VerticalAlignment="Bottom">
+                <Border Background="#3DFFFFFF"/>
+                <Border x:Name="IdleProgressFill"
+                        Width="0"
+                        HorizontalAlignment="Left"
+                        Background="White"/>
+            </Grid>
+
+            <Grid x:Name="HoverGroup"
+                  Opacity="0"
+                  IsHitTestVisible="False">
+                <Border Background="#8A000000"/>
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Margin="0,-20,0,0">
+                    <Button x:Name="BtnPrev"
+                            Width="44"
+                            Height="44"
+                            Style="{StaticResource PlayerOverlayButton}"
+                            Click="BtnPrev_Click">
+                        <Path Data="{StaticResource IconPreviousGeometry}"
+                              Fill="White"
+                              Stretch="Uniform"
+                              Width="19"
+                              Height="19"/>
+                    </Button>
+                    <Button x:Name="BtnPlayPause"
+                            Width="56"
+                            Height="56"
+                            Margin="12,0"
+                            Style="{StaticResource PlayerOverlayButton}"
+                            Click="BtnPlayPause_Click">
+                        <Path x:Name="PlayPauseIcon"
+                              Fill="White"
+                              Stretch="Uniform"
+                              Width="23"
+                              Height="23"/>
+                    </Button>
+                    <Button x:Name="BtnNext"
+                            Width="44"
+                            Height="44"
+                            Style="{StaticResource PlayerOverlayButton}"
+                            Click="BtnNext_Click">
+                        <Path Data="{StaticResource IconNextGeometry}"
+                              Fill="White"
+                              Stretch="Uniform"
+                              Width="19"
+                              Height="19"/>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Width="204"
+                            VerticalAlignment="Bottom"
+                            HorizontalAlignment="Center"
+                            Margin="18,0,18,28">
+                    <TextBlock x:Name="TitleText"
+                               Style="{StaticResource PlayerOverlayTitle}"
+                               Text="No Media"
+                               FontSize="14"/>
+                    <TextBlock x:Name="ArtistText"
+                               Style="{StaticResource PlayerOverlaySubtitle}"
+                               Text="No media available"
+                               FontSize="12"
+                               Margin="0,3,0,0"/>
+                </StackPanel>
+
+                <Grid x:Name="HoverProgressContainer"
+                      Height="12"
+                      VerticalAlignment="Bottom">
+                    <Border Background="#40FFFFFF"/>
+                    <Border x:Name="HoverProgressFill"
+                            Width="0"
+                            HorizontalAlignment="Left"
+                            Background="White"/>
+                    <Ellipse x:Name="ProgressKnob"
+                             Width="14"
+                             Height="14"
+                             Fill="White"
+                             HorizontalAlignment="Left"
+                             VerticalAlignment="Center"
+                             Margin="-7,0,0,0">
+                        <Ellipse.Effect>
+                            <DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.5"/>
+                        </Ellipse.Effect>
+                    </Ellipse>
+                    <Border Background="Transparent"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="ProgressBar_MouseDown"
+                            MouseLeftButtonUp="ProgressBar_MouseUp"
+                            MouseMove="ProgressBar_MouseMove"/>
+                </Grid>
+
+                <Border x:Name="TimestampBadge"
+                        Style="{StaticResource PlayerTimestampBadge}"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Bottom"
+                        Margin="0,0,0,16">
+                    <TextBlock x:Name="TimestampText"
+                               Foreground="White"
+                               FontSize="10"
+                               FontWeight="SemiBold"/>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</local:PlayerControlBase>

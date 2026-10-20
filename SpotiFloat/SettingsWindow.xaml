@@ -7,24 +7,23 @@
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" MouseLeftButtonDown="Window_MouseDown" FontFamily="Segoe UI">
     <Window.Resources>
-        <!-- Modern Toggle Switch -->
+        <!-- Premium Rectangular Toggle Switch -->
         <Style x:Key="ToggleSwitch" TargetType="CheckBox">
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
-                        <Border x:Name="border" Width="44" Height="24" CornerRadius="12" Background="{DynamicResource SettingsElementBorder}" BorderThickness="1" BorderBrush="{DynamicResource SettingsElementBorder}">
-                            <Ellipse x:Name="thumb" Width="18" Height="18" Fill="White" HorizontalAlignment="Left" Margin="2,0,0,0" VerticalAlignment="Center">
-                                <Ellipse.Effect>
+                        <Border x:Name="border" Width="44" Height="24" CornerRadius="5" Background="{DynamicResource SettingsElementBorder}" BorderThickness="0">
+                            <Border x:Name="thumb" Width="18" Height="18" CornerRadius="3" Background="White" HorizontalAlignment="Left" Margin="3,0,0,0" VerticalAlignment="Center">
+                                <Border.Effect>
                                     <DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.2"/>
-                                </Ellipse.Effect>
-                            </Ellipse>
+                                </Border.Effect>
+                            </Border>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#1DB954" />
-                                <Setter TargetName="border" Property="BorderBrush" Value="#1DB954" />
                                 <Setter TargetName="thumb" Property="HorizontalAlignment" Value="Right" />
-                                <Setter TargetName="thumb" Property="Margin" Value="0,0,2,0" />
+                                <Setter TargetName="thumb" Property="Margin" Value="0,0,3,0" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -192,8 +191,42 @@
             <ScrollViewer Grid.Row="1" MaxHeight="550" VerticalScrollBarVisibility="Hidden">
                 <StackPanel Margin="24,24,24,24">
                     
+                    <!-- Player Layout Selector -->
+                    <TextBlock Text="PLAYER LAYOUT" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource SettingsIconForeground}" Margin="0,0,0,8" Opacity="0.6"/>
+                    <Border CornerRadius="12" Background="{DynamicResource SettingsElementBackground}" BorderBrush="{DynamicResource SettingsElementBorder}" BorderThickness="1" Margin="0,0,0,24" Padding="6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- Bar layout -->
+                            <Button x:Name="LayoutBarBtn" Grid.Column="0" Style="{StaticResource IconButton}" Click="LayoutBtn_Click" Tag="0" Margin="0,0,4,0" ToolTip="Bar (default horizontal)">
+                                <StackPanel>
+                                    <Path Data="M3 5h18M3 10h18M3 15h18" Stroke="{DynamicResource PrimaryTextForeground}" StrokeThickness="2" Stretch="Uniform" Width="18" Height="14" Margin="4,4,4,2"/>
+                                    <TextBlock Text="Bar" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextForeground}" Margin="0,0,0,2"/>
+                                </StackPanel>
+                            </Button>
+                            <!-- Square layout -->
+                            <Button x:Name="LayoutSquareBtn" Grid.Column="1" Style="{StaticResource IconButton}" Click="LayoutBtn_Click" Tag="1" Margin="0,0,4,0" ToolTip="Square card">
+                                <StackPanel>
+                                    <Path Data="M3 3h18v18H3z" Stroke="{DynamicResource PrimaryTextForeground}" StrokeThickness="2" Stretch="Uniform" Width="16" Height="16" Margin="4,4,4,2"/>
+                                    <TextBlock Text="Square" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextForeground}" Margin="0,0,0,2"/>
+                                </StackPanel>
+                            </Button>
+                            <!-- Disk layout -->
+                            <Button x:Name="LayoutDiskBtn" Grid.Column="2" Style="{StaticResource IconButton}" Click="LayoutBtn_Click" Tag="2" ToolTip="Disk (spinning vinyl)">
+                                <StackPanel>
+                                    <Path Data="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" Stroke="{DynamicResource PrimaryTextForeground}" StrokeThickness="2" Stretch="Uniform" Width="16" Height="16" Margin="4,4,4,2"/>
+                                    <TextBlock Text="Disk" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextForeground}" Margin="0,0,0,2"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Border>
+
                     <!-- Theme Selector -->
                     <TextBlock Text="THEME" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource SettingsIconForeground}" Margin="0,0,0,8" Opacity="0.6"/>
+
                     <Border CornerRadius="12" Background="{DynamicResource SettingsElementBackground}" BorderBrush="{DynamicResource SettingsElementBorder}" BorderThickness="1" Margin="0,0,0,24" Padding="6">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -224,11 +257,31 @@
                         <ComboBoxItem Content="On Desktop"/>
                     </ComboBox>
 
-                    <!-- Scale -->
-                    <TextBlock Text="SCALE SIZE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource SettingsIconForeground}" Margin="0,0,0,8" Opacity="0.6"/>
-                    <Border CornerRadius="12" Background="{DynamicResource SettingsElementBackground}" BorderBrush="{DynamicResource SettingsElementBorder}" BorderThickness="1" Margin="0,0,0,24" Padding="16,12">
+                    <!-- Scale (Figma-style drag scrubber) -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="SCALE SIZE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource SettingsIconForeground}" Opacity="0.6" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="Drag ↔ or click to type" FontSize="10" Foreground="{DynamicResource SettingsIconForeground}" Opacity="0.35" VerticalAlignment="Center"/>
+                    </Grid>
+                    <Border CornerRadius="12" Background="{DynamicResource SettingsElementBackground}" BorderBrush="{DynamicResource SettingsElementBorder}" BorderThickness="1" Margin="0,0,0,24" Padding="16,12"
+                            Cursor="SizeWE"
+                            MouseLeftButtonDown="ScaleScrubber_MouseLeftButtonDown"
+                            MouseLeftButtonUp="ScaleScrubber_MouseLeftButtonUp"
+                            MouseMove="ScaleScrubber_MouseMove"
+                            MouseLeave="ScaleScrubber_MouseLeave">
                         <Grid>
-                            <TextBox x:Name="ScaleTextBox" Text="100" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource PrimaryTextForeground}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" TextChanged="ScaleTextBox_TextChanged" PreviewTextInput="ScaleTextBox_PreviewTextInput" />
+                            <TextBox x:Name="ScaleTextBox" Text="100"
+                                     Background="Transparent" BorderThickness="0"
+                                     Foreground="{DynamicResource PrimaryTextForeground}"
+                                     FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"
+                                     Cursor="SizeWE" IsReadOnly="True"
+                                     TextChanged="ScaleTextBox_TextChanged"
+                                     PreviewTextInput="ScaleTextBox_PreviewTextInput"
+                                     LostFocus="ScaleTextBox_LostFocus"
+                                     IsHitTestVisible="False"/>
                             <TextBlock Text="%" Foreground="{DynamicResource SettingsIconForeground}" FontWeight="Bold" FontSize="12" Opacity="0.5" HorizontalAlignment="Right" VerticalAlignment="Center" IsHitTestVisible="False"/>
                         </Grid>
                     </Border>
@@ -262,6 +315,21 @@
                             <CheckBox x:Name="HideOnFullscreenCheckBox" Grid.Column="1" Style="{StaticResource ToggleSwitch}" Checked="SettingChanged" Unchecked="SettingChanged"/>
                         </Grid>
                     </Border>
+
+                    <!-- Run on Startup -->
+                    <Border CornerRadius="10" Background="{DynamicResource SettingsElementBackground}" BorderBrush="{DynamicResource SettingsElementBorder}" BorderThickness="1" Padding="15" Margin="0,0,0,20">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Data="M13 10V3L4 14h7v7l9-11h-7z" Stroke="{DynamicResource SettingsIconForeground}" StrokeThickness="2" Stretch="Uniform" Width="18" Height="18" Margin="0,0,12,0" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <TextBlock Grid.Column="0" Text="Run on Startup" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextForeground}" FontSize="14" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <CheckBox x:Name="RunOnStartupCheckBox" Grid.Column="1" Style="{StaticResource ToggleSwitch}" Checked="SettingChanged" Unchecked="SettingChanged"/>
+                        </Grid>
+                    </Border>
                     
                     <!-- Album Cover Fade is always active — no toggle needed -->
 
@@ -285,6 +353,27 @@
                             <CheckBox x:Name="DynamicTitleColourCheckBox" Grid.Column="1" Style="{StaticResource ToggleSwitch}" Checked="SettingChanged" Unchecked="SettingChanged"/>
                         </Grid>
                     </Border>
+
+                    <!-- Quick Actions (Reset + Exit) -->
+                    <Grid Margin="0,0,0,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Style="{StaticResource ActionBtn}" Click="RestoreDefaultButton_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M3 10a8.001 8.001 0 11.954 3.799M3 10V4m0 6h6" Stroke="{DynamicResource PrimaryTextForeground}" StrokeThickness="2" Stretch="Uniform" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Reset Settings" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="2" Style="{StaticResource ActionBtn}" Click="ExitButton_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" Stroke="{DynamicResource PrimaryTextForeground}" StrokeThickness="2" Stretch="Uniform" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Exit App" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
 
                     <!-- Danger Zone -->
                     <Border CornerRadius="12" Background="#0DFF0000" BorderBrush="#33FF0000" BorderThickness="1">
@@ -329,28 +418,33 @@
             </ScrollViewer>
 
             <Rectangle Grid.Row="2" Height="1" Fill="{DynamicResource SettingsElementBorder}" VerticalAlignment="Top"/>
-            
-            <!-- Bottom Actions -->
-            <Grid Grid.Row="2" Margin="24,20,24,20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                
-                <Button Grid.Column="0" Style="{StaticResource ActionBtn}" Click="RestoreDefaultButton_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M3 10a8.001 8.001 0 11.954 3.799M3 10V4m0 6h6" Stroke="{DynamicResource PrimaryTextForeground}" StrokeThickness="2" Stretch="Uniform" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Reset Settings" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
-                
-                <Button Grid.Column="2" Style="{StaticResource ActionBtn}" Click="ExitButton_Click">
-                    <StackPanel Orientation="Horizontal">
-                        <Path Data="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" Stroke="{DynamicResource PrimaryTextForeground}" StrokeThickness="2" Stretch="Uniform" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="Exit App" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Button>
+
+            <!-- Footer: Built by attribution -->
+            <Grid Grid.Row="2" Margin="24,14,24,14">
+                <Border BorderBrush="{DynamicResource SettingsElementBorder}" BorderThickness="1" CornerRadius="20" HorizontalAlignment="Center">
+                    <Button x:Name="GitHubBtn" Click="GitHubBtn_Click" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="FooterBd" Background="Transparent" CornerRadius="20" Padding="16,9">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center">
+                                            <Run Text="Built by " Foreground="{DynamicResource SettingsIconForeground}" FontWeight="Normal"/><Run Text="Inexplicable05" Foreground="{DynamicResource PrimaryTextForeground}" FontWeight="Bold"/>
+                                        </TextBlock>
+                                        <!-- GitHub Mark -->
+                                        <Path Data="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"
+                                              Fill="{DynamicResource PrimaryTextForeground}" Stretch="Uniform"
+                                              Width="16" Height="16" Margin="10,0,0,0" VerticalAlignment="Center" Opacity="0.85"/>
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="FooterBd" Property="Background" Value="{DynamicResource SettingsElementHover}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Border>
             </Grid>
         </Grid>
     </Border>

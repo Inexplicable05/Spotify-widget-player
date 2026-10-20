@@ -1,0 +1,211 @@
+<local:PlayerControlBase x:Class="SpotiFloat.Controls.BarPlayerControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:SpotiFloat.Controls"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <!-- Slider style -->
+        <Style x:Key="ModernSliderStyle" TargetType="Slider">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid>
+                            <Border Height="4" Background="{DynamicResource SliderTrackBackground}" CornerRadius="2" VerticalAlignment="Center" />
+                            <Border x:Name="HoverHighlight" Height="4" Background="{DynamicResource SliderTrackHover}" CornerRadius="2" HorizontalAlignment="Left" Width="0" VerticalAlignment="Center" Visibility="Hidden" IsHitTestVisible="False" />
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="4" Background="{DynamicResource SliderThumb}" CornerRadius="2" VerticalAlignment="Center" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Width="12" Height="12">
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Ellipse x:Name="ThumbEllipse" Fill="{DynamicResource SliderThumb}" RenderTransformOrigin="0.5,0.5">
+                                                    <Ellipse.RenderTransform>
+                                                        <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                                                    </Ellipse.RenderTransform>
+                                                </Ellipse>
+                                                <ControlTemplate.Triggers>
+                                                    <EventTrigger RoutedEvent="MouseEnter">
+                                                        <BeginStoryboard><Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="ThumbEllipse" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1.5" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.5"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                                            <DoubleAnimation Storyboard.TargetName="ThumbEllipse" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1.5" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.5"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                                        </Storyboard></BeginStoryboard>
+                                                    </EventTrigger>
+                                                    <EventTrigger RoutedEvent="MouseLeave">
+                                                        <BeginStoryboard><Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="ThumbEllipse" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                                            <DoubleAnimation Storyboard.TargetName="ThumbEllipse" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                                        </Storyboard></BeginStoryboard>
+                                                    </EventTrigger>
+                                                    <EventTrigger RoutedEvent="PreviewMouseDown">
+                                                        <BeginStoryboard><Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="ThumbEllipse" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1.2" Duration="0:0:0.05" />
+                                                            <DoubleAnimation Storyboard.TargetName="ThumbEllipse" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1.2" Duration="0:0:0.05" />
+                                                        </Storyboard></BeginStoryboard>
+                                                    </EventTrigger>
+                                                    <EventTrigger RoutedEvent="PreviewMouseUp">
+                                                        <BeginStoryboard><Storyboard>
+                                                            <DoubleAnimation Storyboard.TargetName="ThumbEllipse" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1.5" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="1"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                                            <DoubleAnimation Storyboard.TargetName="ThumbEllipse" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1.5" Duration="0:0:0.15"><DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="1"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                                                        </Storyboard></BeginStoryboard>
+                                                    </EventTrigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Background="Transparent" />
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Bouncy button style -->
+        <Style x:Key="BouncyButtonStyle" TargetType="Button">
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value><ScaleTransform ScaleX="1.0" ScaleY="1.0" /></Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="20">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <EventTrigger RoutedEvent="MouseEnter">
+                    <BeginStoryboard><Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1.15" Duration="0:0:0.12"><DoubleAnimation.EasingFunction><QuadraticEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1.15" Duration="0:0:0.12"><DoubleAnimation.EasingFunction><QuadraticEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                    </Storyboard></BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="MouseLeave">
+                    <BeginStoryboard><Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.12"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.12"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                    </Storyboard></BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="PreviewMouseDown">
+                    <BeginStoryboard><Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="0.88" Duration="0:0:0.05" />
+                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="0.88" Duration="0:0:0.05" />
+                    </Storyboard></BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="PreviewMouseUp">
+                    <BeginStoryboard><Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1.15" Duration="0:0:0.08"><DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="3"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1.15" Duration="0:0:0.08"><DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="3"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                    </Storyboard></BeginStoryboard>
+                </EventTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Width="520" Margin="12,12,12,12">
+        <Grid.LayoutTransform>
+            <ScaleTransform x:Name="PlayerScale" ScaleX="1.0" ScaleY="1.0"/>
+        </Grid.LayoutTransform>
+
+        <Border CornerRadius="16" Background="{DynamicResource AppBackground}"
+                BorderBrush="{DynamicResource AppBorder}" BorderThickness="1.5" Padding="4,4,14,4">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="10" ShadowDepth="3" Opacity="{DynamicResource WindowShadowOpacity}"/>
+            </Border.Effect>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="132" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Album Art -->
+                <Border Grid.Column="0" CornerRadius="10" Width="56" Height="56"
+                        Background="{DynamicResource AlbumArtBackground}"
+                        BorderBrush="{DynamicResource AlbumArtBorder}" BorderThickness="1">
+                    <Image x:Name="AlbumArtImage" Stretch="UniformToFill">
+                        <Image.Clip>
+                            <RectangleGeometry Rect="0,0,56,56" RadiusX="10" RadiusY="10" />
+                        </Image.Clip>
+                    </Image>
+                </Border>
+
+                <!-- Track Info -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,10,0">
+                    <TextBlock x:Name="TitleText" Text="No Media" Foreground="{DynamicResource PrimaryTextForeground}"
+                               FontSize="16" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="ArtistText" Text="No media available" Foreground="{DynamicResource SecondaryTextForeground}"
+                               FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                </StackPanel>
+
+                <!-- Controls -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
+                    <Button x:Name="BtnPrev" Width="40" Height="40" Click="BtnPrev_Click"
+                            BorderThickness="0" Margin="0,0,8,0"
+                            Style="{StaticResource BouncyButtonStyle}"
+                            Background="{DynamicResource ButtonBackground}">
+                        <Path Data="M19,6L11,12L19,18V6M11,6L3,12L11,18V6Z"
+                              Fill="{DynamicResource ButtonIconForeground}" Stretch="Uniform" Width="16" Height="16"/>
+                    </Button>
+                    <Button x:Name="BtnPlayPause" Width="40" Height="40" Click="BtnPlayPause_Click"
+                            BorderThickness="0" Margin="0,0,8,0"
+                            Style="{StaticResource BouncyButtonStyle}"
+                            Background="{DynamicResource ButtonBackground}">
+                        <Path x:Name="PlayPauseIcon" Data="M8,5.14V19.14L19,12.14L8,5.14Z"
+                              Fill="{DynamicResource ButtonIconForeground}" Stretch="Uniform" Width="16" Height="16"/>
+                    </Button>
+                    <Button x:Name="BtnNext" Width="40" Height="40" Click="BtnNext_Click"
+                            BorderThickness="0"
+                            Style="{StaticResource BouncyButtonStyle}"
+                            Background="{DynamicResource ButtonBackground}">
+                        <Path Data="M5,6L13,12L5,18V6M13,6L21,12L13,18V6Z"
+                              Fill="{DynamicResource ButtonIconForeground}" Stretch="Uniform" Width="16" Height="16"/>
+                    </Button>
+                </StackPanel>
+
+                <!-- Progress -->
+                <Slider x:Name="ProgressSlider" Grid.Column="3" VerticalAlignment="Center"
+                        Minimum="0" Maximum="100"
+                        Style="{StaticResource ModernSliderStyle}"
+                        PreviewMouseDown="ProgressSlider_PreviewMouseDown"
+                        PreviewMouseUp="ProgressSlider_PreviewMouseUp"
+                        IsMoveToPointEnabled="True"
+                        MouseMove="ProgressSlider_MouseMove"
+                        MouseLeave="ProgressSlider_MouseLeave"
+                        MouseEnter="ProgressSlider_MouseEnter" />
+            </Grid>
+        </Border>
+
+        <!-- Timestamp Tooltip Popup -->
+        <Popup x:Name="TimestampPopup" AllowsTransparency="True" Placement="Relative"
+               PlacementTarget="{Binding ElementName=ProgressSlider}">
+            <Border Background="{DynamicResource TooltipBackground}" CornerRadius="4" Padding="6,2">
+                <TextBlock x:Name="TimestampTooltipText" Foreground="{DynamicResource TooltipForeground}"
+                           FontSize="11" FontWeight="SemiBold"/>
+            </Border>
+        </Popup>
+    </Grid>
+</local:PlayerControlBase>

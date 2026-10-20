@@ -6,6 +6,8 @@ using System.Diagnostics;
 
 namespace SpotiFloat
 {
+    public enum PlayerLayout { Bar = 0, Square = 1, Disk = 2 }
+
     public class AppSettings
     {
         public bool IsLocked { get; set; } = false;
@@ -15,6 +17,7 @@ namespace SpotiFloat
         public int ThemeIndex { get; set; } = 0; // 0: Dark, 1: Light, 2: Glass, 3: Dynamic
         public bool RunOnStartup { get; set; } = false;
         public bool EnableDynamicTitleColour { get; set; } = true;
+        public PlayerLayout Layout { get; set; } = PlayerLayout.Bar;
     }
 
     public static class SettingsManager
