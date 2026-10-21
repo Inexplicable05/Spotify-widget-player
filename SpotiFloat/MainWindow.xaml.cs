@@ -137,6 +137,7 @@ namespace SpotiFloat
             // Push the last known media state immediately
             if (_lastState != null)
                 newControl.UpdateMediaState(_lastState);
+            RefreshTitleColour();
 
         }
 
@@ -223,17 +224,7 @@ namespace SpotiFloat
             ThemeIndex              = s.ThemeIndex;
             EnableDynamicTitleColour= s.EnableDynamicTitleColour;
 
-            // Apply saved theme
-            string themeFile = ThemeIndex switch
-            {
-                1 => "Themes/Theme_Light.xaml",
-                2 => "Themes/Theme_Glass.xaml",
-                _ => "Themes/Theme_Dark.xaml"
-            };
-            var dict = new System.Windows.ResourceDictionary
-                { Source = new Uri(themeFile, UriKind.Relative) };
-            WpfApp.Current.Resources.MergedDictionaries.Clear();
-            WpfApp.Current.Resources.MergedDictionaries.Add(dict);
+            ApplyTheme(s.ThemeIndex);
 
             // Activate saved layout.
             SwitchLayout(s.Layout);
@@ -348,6 +339,7 @@ namespace SpotiFloat
                 };
                 _lastState = empty;
                 _activePlayer.UpdateMediaState(empty);
+                RefreshAppearance();
                 return;
             }
 
@@ -411,18 +403,7 @@ namespace SpotiFloat
                 _lastState = state;
                 _activePlayer.UpdateMediaState(state);
 
-                // Dynamic theme / dynamic title colour
-                if (art != null)
-                {
-                    if (ThemeIndex == 3)
-                        ApplyDynamicTheme(art);
-                    else if (EnableDynamicTitleColour && Layout == PlayerLayout.Bar)
-                    {
-                        // Only apply to Bar layout's TitleText (Square/Disk handle their own)
-                        if (_activeControl is BarPlayerControl bar)
-                            bar.TitleText.Foreground = new SolidColorBrush(GetDominantColor(art));
-                    }
-                }
+                RefreshAppearance();
             }
             catch { }
         }
@@ -459,6 +440,39 @@ namespace SpotiFloat
 
         public void RefreshMedia() => UpdateCurrentSession();
 
+        public void ApplyTheme(int themeIndex)
+        {
+            ThemeIndex = themeIndex;
+            ClearDynamicThemeOverrides();
+            string themeFile = themeIndex switch
+            {
+                1 => "Theme_Light.xaml",
+                2 => "Theme_Glass.xaml",
+                _ => "Theme_Dark.xaml"
+            };
+            var resources = WpfApp.Current.Resources.MergedDictionaries;
+            resources.Clear();
+            resources.Add(new ResourceDictionary { Source = new Uri($"/SpotiFloat;component/Themes/{themeFile}", UriKind.Relative) });
+            RefreshAppearance();
+        }
+
+        public void RefreshAppearance()
+        {
+            if (ThemeIndex == 3)
+            {
+                if (_lastState?.Art != null) ApplyDynamicTheme(_lastState.Art);
+                else ClearDynamicThemeOverrides();
+            }
+            RefreshTitleColour();
+        }
+
+        private void RefreshTitleColour()
+        {
+            WpfColor? accent = EnableDynamicTitleColour && _lastState?.Art != null
+                ? GetDominantColor(_lastState.Art) : null;
+            _activePlayer?.ApplyTitleAppearance(ThemeIndex, accent);
+        }
+
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Dynamic Theme
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -473,7 +487,7 @@ namespace SpotiFloat
             "WindowShadowOpacity",
             "SettingsPopupBackground", "SettingsPopupBorder",
             "SettingsElementBackground", "SettingsElementBorder",
-            "SettingsElementHover", "SettingsIconForeground"
+            "SettingsElementHover", "SettingsIconForeground", "PlayerOverlayColour"
         };
 
         public static void ClearDynamicThemeOverrides()
@@ -491,27 +505,26 @@ namespace SpotiFloat
             byte sB = (byte)(seed.B * 0.72 + 18);
             WpfColor surface = WpfColor.FromRgb(sR, sG, sB);
 
-            double L = 0.2126 * (sR / 255.0) + 0.7152 * (sG / 255.0) + 0.0722 * (sB / 255.0);
-            bool isDark = L < 0.45;
-
-            WpfColor onSurface    = isDark ? WpfColor.FromRgb(240, 240, 240) : WpfColor.FromRgb(15, 15, 15);
-            WpfColor secondaryFg  = isDark ? WpfColor.FromRgb(190, 190, 190) : WpfColor.FromRgb(80, 80, 80);
+            WpfColor onSurface = TextContrast.ReadableOn(surface);
+            bool isDark = onSurface == WpfColors.White;
+            WpfColor secondaryFg = onSurface;
             WpfColor surfaceVar   = isDark
-                ? WpfColor.FromRgb(Clamp(sR + 30, 0, 255), Clamp(sG + 30, 0, 255), Clamp(sB + 30, 0, 255))
-                : WpfColor.FromRgb(Clamp(sR - 25, 0, 255), Clamp(sG - 25, 0, 255), Clamp(sB - 25, 0, 255));
+                ? WpfColor.FromRgb(Clamp(sR - 15, 0, 255), Clamp(sG - 15, 0, 255), Clamp(sB - 15, 0, 255))
+                : WpfColor.FromRgb(Clamp(sR + 15, 0, 255), Clamp(sG + 15, 0, 255), Clamp(sB + 15, 0, 255));
             WpfColor borderColor  = WpfColor.FromArgb(isDark ? (byte)70  : (byte)50,  0, 0, 0);
             WpfColor sliderTrack  = WpfColor.FromArgb(isDark ? (byte)55  : (byte)45,  onSurface.R, onSurface.G, onSurface.B);
             WpfColor sliderHover  = WpfColor.FromArgb(isDark ? (byte)110 : (byte)90,  onSurface.R, onSurface.G, onSurface.B);
             WpfColor albumBorder  = WpfColor.FromArgb(isDark ? (byte)80  : (byte)60,  onSurface.R, onSurface.G, onSurface.B);
             WpfColor tooltipBg    = WpfColor.FromRgb(
-                Clamp(isDark ? sR + 40 : sR - 35, 0, 255),
-                Clamp(isDark ? sG + 40 : sG - 35, 0, 255),
-                Clamp(isDark ? sB + 40 : sB - 35, 0, 255));
+                Clamp(isDark ? sR - 20 : sR + 20, 0, 255),
+                Clamp(isDark ? sG - 20 : sG + 20, 0, 255),
+                Clamp(isDark ? sB - 20 : sB + 20, 0, 255));
 
             var res = WpfApp.Current.Resources;
             res["AppBackground"]          = new SolidColorBrush(surface);
             res["AppBorder"]              = new SolidColorBrush(borderColor);
             res["PrimaryTextForeground"]  = new SolidColorBrush(onSurface);
+            res["PlayerOverlayColour"] = surface;
             res["SecondaryTextForeground"]= new SolidColorBrush(secondaryFg);
             res["ButtonBackground"]       = new SolidColorBrush(surfaceVar);
             res["ButtonIconForeground"]   = new SolidColorBrush(onSurface);
@@ -526,14 +539,10 @@ namespace SpotiFloat
 
             if (ThemeIndex == 3)
             {
-                WpfColor settingsBg = WpfColor.FromRgb(
-                    Clamp(isDark ? sR - 10 : sR + 15, 0, 255),
-                    Clamp(isDark ? sG - 10 : sG + 15, 0, 255),
-                    Clamp(isDark ? sB - 10 : sB + 15, 0, 255));
-                WpfColor settingsEl = WpfColor.FromArgb(isDark ? (byte)60 : (byte)45,
-                    onSurface.R, onSurface.G, onSurface.B);
-                WpfColor settingsHov = WpfColor.FromArgb(isDark ? (byte)90 : (byte)70,
-                    onSurface.R, onSurface.G, onSurface.B);
+                WpfColor settingsBg = surface;
+                byte overlay = isDark ? (byte)0 : (byte)255;
+                WpfColor settingsEl = WpfColor.FromArgb(45, overlay, overlay, overlay);
+                WpfColor settingsHov = WpfColor.FromArgb(70, overlay, overlay, overlay);
                 res["SettingsPopupBackground"]  = new SolidColorBrush(settingsBg);
                 res["SettingsPopupBorder"]      = new SolidColorBrush(borderColor);
                 res["SettingsElementBackground"]= new SolidColorBrush(settingsEl);
@@ -541,6 +550,7 @@ namespace SpotiFloat
                 res["SettingsElementHover"]     = new SolidColorBrush(settingsHov);
                 res["SettingsIconForeground"]   = new SolidColorBrush(secondaryFg);
             }
+            RefreshTitleColour();
         }
 
         private static WpfColor GetDominantColor(BitmapSource source)

@@ -9,7 +9,7 @@
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Controls/PlayerResources.xaml"/>
+                <ResourceDictionary Source="/SpotiFloat;component/Controls/PlayerResources.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>
@@ -59,17 +59,10 @@
                 </Image.RenderTransform>
             </Image>
 
-            <Ellipse x:Name="HoverOverlay"
-                     Opacity="0">
-                <Ellipse.Fill>
-                    <RadialGradientBrush>
-                        <GradientStop Color="#A8000000" Offset="0.35"/>
-                        <GradientStop Color="#66000000" Offset="1"/>
-                    </RadialGradientBrush>
-                </Ellipse.Fill>
-            </Ellipse>
+            <Ellipse x:Name="HoverOverlay" Fill="{StaticResource PlayerOverlayBackground}" Opacity="0"/>
 
             <Canvas x:Name="WaveformCanvas"
+                    Effect="{StaticResource PlayerOverlayHalo}"
                     Width="154"
                     Height="58"
                     HorizontalAlignment="Center"
@@ -89,7 +82,7 @@
                             Style="{StaticResource PlayerOverlayButton}"
                             Click="BtnPrev_Click">
                         <Path Data="{StaticResource IconPreviousGeometry}"
-                              Fill="White"
+                              Style="{StaticResource PlayerOverlayIcon}"
                               Stretch="Uniform"
                               Width="18"
                               Height="18"/>
@@ -101,7 +94,7 @@
                             Style="{StaticResource PlayerOverlayButton}"
                             Click="BtnPlayPause_Click">
                         <Path x:Name="PlayPauseIcon"
-                              Fill="White"
+                              Style="{StaticResource PlayerOverlayIcon}"
                               Stretch="Uniform"
                               Width="22"
                               Height="22"/>
@@ -112,7 +105,7 @@
                             Style="{StaticResource PlayerOverlayButton}"
                             Click="BtnNext_Click">
                         <Path Data="{StaticResource IconNextGeometry}"
-                              Fill="White"
+                              Style="{StaticResource PlayerOverlayIcon}"
                               Stretch="Uniform"
                               Width="18"
                               Height="18"/>
@@ -146,7 +139,7 @@
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top">
             <TextBlock x:Name="TimestampText"
-                       Foreground="White"
+                       Foreground="{DynamicResource TooltipForeground}"
                        FontSize="10"
                        FontWeight="SemiBold"/>
         </Border>

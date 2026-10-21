@@ -85,10 +85,9 @@ namespace SpotiFloat.Controls
                     Width  = barW,
                     Height = 2,
                     RadiusX = 1, RadiusY = 1,
-                    // Full-opacity white — contrast comes from the gradient scrim behind
-                    Fill = new SolidColorBrush(System.Windows.Media.Color.FromArgb(255, 255, 255, 255)),
                     VerticalAlignment = VerticalAlignment.Bottom
                 };
+                r.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "PrimaryTextForeground");
                 Canvas.SetBottom(r, 0);
                 Canvas.SetLeft(r, i * (barW + gap));
                 VisualizerCanvas.Children.Add(r);
@@ -123,13 +122,13 @@ namespace SpotiFloat.Controls
 
         private void UpdateIdleProgressFill()
         {
-            double idleWidth = IdleProgressContainer.ActualWidth > 0 ? IdleProgressContainer.ActualWidth : 240;
-            double hoverWidth = HoverProgressContainer.ActualWidth > 0 ? HoverProgressContainer.ActualWidth : idleWidth;
+            double idleWidth = IdleProgressContainer.ActualWidth;
+            double hoverWidth = HoverProgressRail.ActualWidth;
             if (_duration <= 0)
             {
                 IdleProgressFill.Width = 0;
                 HoverProgressFill.Width = 0;
-                HoverProgressKnobMargin(0);
+                PositionProgressKnob(0);
                 return;
             }
 
@@ -141,14 +140,14 @@ namespace SpotiFloat.Controls
             {
                 double hoverFillWidth = hoverWidth * ratio;
                 HoverProgressFill.Width  = hoverFillWidth;
-                double knobL = Math.Clamp(hoverFillWidth - 7, 0, Math.Max(0, hoverWidth - 14));
-                HoverProgressKnobMargin(knobL);
+                PositionProgressKnob(hoverFillWidth);
             }
         }
 
-        private void HoverProgressKnobMargin(double left)
+        private void PositionProgressKnob(double fillWidth)
         {
-            ProgressKnob.Margin = new Thickness(left, 0, 0, 0);
+            // The card clips the marker and rail together at the rounded endpoints.
+            ((TranslateTransform)ProgressKnob.RenderTransform).X = fillWidth - ProgressKnob.Width / 2;
         }
 
         // â”€â”€ Hover transitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -213,23 +212,31 @@ namespace SpotiFloat.Controls
             _isDraggingProgress = true;
             ((UIElement)sender).CaptureMouse();
             SeekToMouseX(e.GetPosition(HoverProgressContainer).X);
+            UpdateTimestamp(e.GetPosition(HoverProgressContainer).X);
         }
 
         private void ProgressBar_MouseMove(object sender, WinInput.MouseEventArgs e)
         {
             double x = e.GetPosition(HoverProgressContainer).X;
-            double ratio = Math.Clamp(x / Math.Max(1, HoverProgressContainer.ActualWidth), 0, 1);
+            UpdateTimestamp(x);
+
+            if (_isDraggingProgress)
+                SeekToMouseX(x);
+        }
+
+        private void UpdateTimestamp(double x)
+        {
+            double ratio = GetSeekRatio(x);
             var t = TimeSpan.FromSeconds(ratio * _duration);
 
             // Show timestamp badge
             TimestampBadge.Visibility = Visibility.Visible;
             TimestampText.Text        = FormatTimestamp(t.TotalSeconds) + " / " + FormatTimestamp(_duration);
-            double width = HoverProgressContainer.ActualWidth > 0 ? HoverProgressContainer.ActualWidth : 240;
-            double left = Math.Clamp(x - 36, 4, Math.Max(4, width - 84));
-            TimestampBadge.Margin = new Thickness(left, 0, 0, 14);
-
-            if (_isDraggingProgress)
-                SeekToMouseX(x);
+            TimestampBadge.Measure(new System.Windows.Size(CardGrid.ActualWidth, double.PositiveInfinity));
+            double width = TimestampBadge.DesiredSize.Width - TimestampBadge.Margin.Left - TimestampBadge.Margin.Right;
+            double left = Math.Clamp(HoverProgressContainer.Margin.Left + x - width / 2,
+                8, Math.Max(8, CardGrid.ActualWidth - width - 8));
+            TimestampBadge.Margin = new Thickness(left, 0, 0, 26);
         }
 
         private void ProgressBar_MouseUp(object sender, MouseButtonEventArgs e)
@@ -239,6 +246,8 @@ namespace SpotiFloat.Controls
                 SeekToMouseX(e.GetPosition(HoverProgressContainer).X);
                 ((UIElement)sender).ReleaseMouseCapture();
                 _isDraggingProgress = false;
+                if (!((UIElement)sender).IsMouseOver)
+                    TimestampBadge.Visibility = Visibility.Collapsed;
 
                 if (!RootGrid.IsMouseOver)
                     HideHover();
@@ -248,10 +257,18 @@ namespace SpotiFloat.Controls
         private void SeekToMouseX(double x)
         {
             if (_duration <= 0) return;
-            double ratio = Math.Clamp(x / Math.Max(1, HoverProgressContainer.ActualWidth), 0, 1);
+            double ratio = GetSeekRatio(x);
             double secs  = ratio * _duration;
             RequestSeek(secs);
             UpdateIdleProgressFill();
         }
+
+        private void ProgressBar_MouseLeave(object sender, WinInput.MouseEventArgs e)
+        {
+            if (!_isDraggingProgress) TimestampBadge.Visibility = Visibility.Collapsed;
+        }
+
+        private double GetSeekRatio(double x) => Math.Clamp(
+            x / Math.Max(1, HoverProgressContainer.ActualWidth), 0, 1);
     }
 }

@@ -25,6 +25,14 @@
         </tb:TaskbarIcon>
 
         <!-- Active player layout is injected here at runtime -->
-        <ContentControl x:Name="PlayerHost"/>
+        <ContentControl x:Name="PlayerHost" Focusable="True">
+            <ContentControl.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="_Settings" Click="MenuItemSettings_Click"/>
+                    <Separator/>
+                    <MenuItem Header="E_xit" Click="MenuItemExit_Click"/>
+                </ContextMenu>
+            </ContentControl.ContextMenu>
+        </ContentControl>
     </Grid>
 </Window>

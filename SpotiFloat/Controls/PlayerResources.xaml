@@ -4,6 +4,16 @@
     <Geometry x:Key="IconPreviousGeometry">M19,6L11,12L19,18V6M11,6L3,12L11,18V6Z</Geometry>
     <Geometry x:Key="IconNextGeometry">M5,6L13,12L5,18V6M13,6L21,12L13,18V6Z</Geometry>
 
+    <SolidColorBrush x:Key="PlayerOverlayBackground" Color="{DynamicResource PlayerOverlayColour}"/>
+    <LinearGradientBrush x:Key="PlayerOverlayScrim" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="Transparent" Offset="0"/>
+        <GradientStop Color="{DynamicResource PlayerOverlayColour}" Offset="1"/>
+    </LinearGradientBrush>
+    <DropShadowEffect x:Key="PlayerOverlayHalo" Color="{DynamicResource PlayerOverlayColour}" BlurRadius="3" ShadowDepth="0" Opacity="1"/>
+    <Style x:Key="PlayerOverlayIcon" TargetType="Path">
+        <Setter Property="Fill" Value="{DynamicResource ButtonIconForeground}"/>
+    </Style>
+
     <Style x:Key="PlayerOverlayButton" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
@@ -78,32 +88,22 @@
     </Style>
 
     <Style x:Key="PlayerOverlayTitle" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextForeground}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="TextAlignment" Value="Center"/>
         <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         <Setter Property="TextWrapping" Value="NoWrap"/>
-        <Setter Property="Effect">
-            <Setter.Value>
-                <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.8"/>
-            </Setter.Value>
-        </Setter>
     </Style>
 
     <Style x:Key="PlayerOverlaySubtitle" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="#CCFFFFFF"/>
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextForeground}"/>
         <Setter Property="TextAlignment" Value="Center"/>
         <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         <Setter Property="TextWrapping" Value="NoWrap"/>
-        <Setter Property="Effect">
-            <Setter.Value>
-                <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.8"/>
-            </Setter.Value>
-        </Setter>
     </Style>
 
     <Style x:Key="PlayerTimestampBadge" TargetType="Border">
-        <Setter Property="Background" Value="#CC000000"/>
+        <Setter Property="Background" Value="{DynamicResource TooltipBackground}"/>
         <Setter Property="CornerRadius" Value="4"/>
         <Setter Property="Padding" Value="6,2"/>
         <Setter Property="Visibility" Value="Collapsed"/>

@@ -19,7 +19,7 @@ namespace SpotiFloat.Controls
     ///   • RequestSeek() – single entry-point for all seek operations
     ///   • AppScaleTransform – all layouts name their ScaleTransform "PlayerScale"
     ///   • Button click handlers (XAML wires them via C# inheritance)
-    ///   • AnimateOpacity / ExtractDominantColor utilities
+    ///   • Shared artwork and animation utilities
     ///
     /// Each subclass overrides UpdateMediaState(state), calls base first to get
     /// the seek guard applied, then handles its own layout-specific UI.
@@ -116,6 +116,33 @@ namespace SpotiFloat.Controls
 
         protected static ImageSource FallbackAlbumArt => _fallbackAlbumArt.Value;
 
+        public void ApplyTitleAppearance(int themeIndex, System.Windows.Media.Color? albumColour)
+        {
+            if (FindName("TitleText") is not TextBlock title) return;
+            title.SetResourceReference(TextBlock.ForegroundProperty, "PrimaryTextForeground");
+            title.Effect = null;
+            if (themeIndex == 3 || albumColour == null) return;
+            if (themeIndex == 2)
+            {
+                title.Foreground = new SolidColorBrush(TextContrast.AccentOn(albumColour.Value, Colors.Black));
+                title.Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = Colors.Black, ShadowDepth = 0, BlurRadius = 2, Opacity = 1
+                };
+                return;
+            }
+            if (TryFindResource("AppBackground") is not SolidColorBrush surface) return;
+            var background = surface.Color;
+            if (FindName("HoverGroup") != null && TryFindResource("PlayerOverlayColour") is System.Windows.Media.Color overlay)
+            {
+                // Test against the least favourable image beneath the translucent overlay.
+                byte behind = TextContrast.ReadableOn(overlay) == Colors.White ? (byte)255 : (byte)0;
+                byte Composite(byte value) => (byte)Math.Round((value * overlay.A + behind * (255 - overlay.A)) / 255.0);
+                background = System.Windows.Media.Color.FromRgb(Composite(overlay.R), Composite(overlay.G), Composite(overlay.B));
+            }
+            title.Foreground = new SolidColorBrush(TextContrast.AccentOn(albumColour.Value, background));
+        }
+
         /// Smoothly animates an element's Opacity to <paramref name="to"/> over
         /// <paramref name="ms"/> milliseconds with a CubicEase-Out curve.
         protected static void AnimateOpacity(UIElement? el, double to, int ms)
@@ -184,38 +211,6 @@ namespace SpotiFloat.Controls
             }
         }
 
-        /// Extracts a saturated dominant colour from a bitmap for use as the
-        /// ring/accent colour on the Disk player.
-        protected static System.Windows.Media.Color ExtractDominantColor(BitmapSource src)
-        {
-            try
-            {
-                var scaled = new TransformedBitmap(src,
-                    new ScaleTransform(16.0 / src.PixelWidth, 16.0 / src.PixelHeight));
-                int bpp    = (scaled.Format.BitsPerPixel + 7) / 8;
-                int stride = scaled.PixelWidth * bpp;
-                byte[] px  = new byte[scaled.PixelHeight * stride];
-                scaled.CopyPixels(px, stride, 0);
 
-                long r = 0, g = 0, b = 0, n = 0;
-                for (int i = 0; i < px.Length; i += bpp * 4)
-                {
-                    if (i + 2 >= px.Length) break;
-                    b += px[i]; g += px[i + 1]; r += px[i + 2]; n++;
-                }
-                if (n == 0) return System.Windows.Media.Color.FromRgb(29, 185, 84);
-
-                double fr  = r / (double)n / 255.0;
-                double fg  = g / (double)n / 255.0;
-                double fb  = b / (double)n / 255.0;
-                double max = Math.Max(fr, Math.Max(fg, fb));
-                double sat = 1.4;
-                fr = Math.Clamp(fr * sat + (1 - sat) * max, 0, 1);
-                fg = Math.Clamp(fg * sat + (1 - sat) * max, 0, 1);
-                fb = Math.Clamp(fb * sat + (1 - sat) * max, 0, 1);
-                return System.Windows.Media.Color.FromRgb((byte)(fr * 255), (byte)(fg * 255), (byte)(fb * 255));
-            }
-            catch { return System.Windows.Media.Color.FromRgb(29, 185, 84); }
-        }
     }
 }

@@ -16,6 +16,7 @@ namespace SpotiFloat
 
         // ── Data push from MainWindow ─────────────────────────────────────────
         void UpdateMediaState(MediaState state);
+        void ApplyTitleAppearance(int themeIndex, System.Windows.Media.Color? albumColour);
 
         // ── Scale (MainWindow drives scale via this transform) ────────────────
         System.Windows.Media.ScaleTransform? AppScaleTransform { get; }

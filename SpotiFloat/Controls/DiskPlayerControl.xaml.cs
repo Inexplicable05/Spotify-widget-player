@@ -8,7 +8,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using WinInput = System.Windows.Input;
-using WpfMedia = System.Windows.Media;
 using WpfPoint = System.Windows.Point;
 
 namespace SpotiFloat.Controls
@@ -27,7 +26,6 @@ namespace SpotiFloat.Controls
         // â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         private bool   _isHovered;
         private bool   _isDraggingArc;
-        private WpfMedia.Color  _ringColor = WpfMedia.Color.FromRgb(29, 185, 84); // default green
 
         // â”€â”€ Arc drawing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         private Path?   _arcTrack;
@@ -92,31 +90,31 @@ namespace SpotiFloat.Controls
             _arcTrack = new Path
             {
                 Data            = BuildArcGeometry(cx, cy, r, 0, 359.99),
-                Stroke          = new SolidColorBrush(System.Windows.Media.Color.FromArgb(35, 255, 255, 255)),
                 StrokeThickness = ArcIdleStroke,
                 Fill            = System.Windows.Media.Brushes.Transparent,
                 IsHitTestVisible = false
             };
+            _arcTrack.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "SliderTrackBackground");
             ArcCanvas.Children.Add(_arcTrack);
 
             // Fill (bright portion = played)
             _arcFill = new Path
             {
-                Stroke          = new SolidColorBrush(_ringColor),
                 StrokeThickness = ArcIdleStroke,
                 Fill            = System.Windows.Media.Brushes.Transparent,
                 IsHitTestVisible = false
             };
+            _arcFill.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "SliderThumb");
             ArcCanvas.Children.Add(_arcFill);
 
             // Knob (hidden until hover)
             _arcKnob = new Ellipse
             {
                 Width   = KnobSize, Height = KnobSize,
-                Fill    = System.Windows.Media.Brushes.White,
                 Opacity = 0,
                 IsHitTestVisible = false
             };
+            _arcKnob.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "SliderThumb");
             _arcKnob.Effect = new System.Windows.Media.Effects.DropShadowEffect
                 { BlurRadius = 4, ShadowDepth = 1, Opacity = 0.5 };
             ArcCanvas.Children.Add(_arcKnob);
@@ -128,11 +126,12 @@ namespace SpotiFloat.Controls
 
             _waveform = new Polyline
             {
-                Stroke          = new SolidColorBrush(System.Windows.Media.Color.FromArgb(115, 255, 255, 255)),
+                Opacity         = 0.45,
                 StrokeThickness = 1.8,
                 StrokeLineJoin  = PenLineJoin.Round,
                 IsHitTestVisible = false
             };
+            _waveform.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "PrimaryTextForeground");
             WaveformCanvas.Children.Add(_waveform);
         }
 
@@ -193,8 +192,6 @@ namespace SpotiFloat.Controls
                 ? new PathGeometry()
                 : BuildArcGeometry(cx, cy, r, 0, sweepDeg);
 
-            // Glow ring color
-            (_arcFill.Stroke as SolidColorBrush)!.Color = _ringColor;
 
             // Knob position
             double knobAngleRad = (sweepDeg - 90) * Math.PI / 180;
@@ -374,16 +371,10 @@ namespace SpotiFloat.Controls
             if (_isPlaying && !wasPlaying) StartSpin();
             else if (!_isPlaying && wasPlaying) StopSpin();
 
-            if (state.Art != null && (state.IsNewTrack || AlbumArtImage.Source == null))
-                _ringColor = ExtractDominantColor(state.Art);
-            else if (state.Art == null)
-                _ringColor = WpfMedia.Color.FromRgb(29, 185, 84);
-
             SetAlbumArtSource(AlbumArtImage, state.Art, state.IsNewTrack);
 
             if (_arcFill != null)
             {
-                (_arcFill.Stroke as SolidColorBrush)!.Color = _ringColor;
                 UpdateArc();
             }
         }
