@@ -1,0 +1,32 @@
+name: Windows build and checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-check:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Restore
+        run: dotnet restore SpotiFloat/SpotiFloat.csproj
+      - name: Build
+        run: dotnet build SpotiFloat/SpotiFloat.csproj -c Release --no-restore
+      - name: Source and audio-policy checks
+        run: dotnet run --project tests/SourcePolicyChecks
+      - name: Settings and rendering checks
+        run: dotnet run --project tests/SettingsChecks
+      - name: Build-helper checks (no packaging)
+        shell: powershell
+        run: ./tests/BuildScriptChecks.ps1

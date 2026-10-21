@@ -113,7 +113,7 @@ namespace SpotiFloat
 }
         }
 
-        public static void WipeSettingsAndUninstall()
+        public static bool ClearSavedData()
         {
             try
             {
@@ -128,10 +128,12 @@ namespace SpotiFloat
                 {
                     Directory.Delete(AppDataFolder, true);
                 }
+                return true;
             }
             catch (Exception ex)
 {
-    Debug.WriteLine($"WipeSettingsAndUninstall error: {ex}");
+    Debug.WriteLine($"ClearSavedData error: {ex}");
+    return false;
 }
         }
     }

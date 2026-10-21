@@ -79,9 +79,13 @@ namespace SpotiFloat
         {
             InitializeComponent();
 
-            string? exePath = Environment.ProcessPath;
-            if (!string.IsNullOrEmpty(exePath))
-                TrayIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(exePath);
+            UpdateTrayIcon();
+            Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnSystemPreferenceChanged;
+            Closed += (_, _) =>
+            {
+                Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnSystemPreferenceChanged;
+                TrayIcon.Dispose();
+            };
 
             _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
             _timer.Tick += Timer_Tick;
@@ -91,6 +95,24 @@ namespace SpotiFloat
             _sessionCheckTimer.Start();
 
             Loaded += MainWindow_Loaded;
+        }
+
+        private void OnSystemPreferenceChanged(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+            => Dispatcher.BeginInvoke(new Action(UpdateTrayIcon));
+
+        private void UpdateTrayIcon()
+        {
+            bool light = false;
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+                light = key?.GetValue("SystemUsesLightTheme") is int value && value == 1;
+            }
+            catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException)
+            {
+                Debug.WriteLine($"Tray theme lookup failed: {ex}");
+            }
+            TrayIcon.IconSource = BitmapFrame.Create(new Uri($"pack://application:,,,/SpotiFloat;component/tray-{(light ? "light" : "dark")}.ico"));
         }
 
         // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

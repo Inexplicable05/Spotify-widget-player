@@ -1,35 +1,29 @@
+[CmdletBinding()]
 param (
     [switch]$BuildInstaller
 )
 
-Write-Host "Building SpotiFloat (Portable Executable)..." -ForegroundColor Cyan
+$ErrorActionPreference = 'Stop'
+$projectFile = Join-Path $PSScriptRoot 'SpotiFloat.csproj'
 
-# 1. Build the standalone portable executable
-$dotnet = "C:\Users\ashut\AppData\Local\Microsoft\dotnet\dotnet.exe"
-& $dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishReadyToRun=true
-
-Write-Host "Portable Executable built successfully!" -ForegroundColor Green
-Write-Host "Location: bin\Release\net8.0-windows10.0.19041.0\win-x64\publish\SpotiFloat.exe" -ForegroundColor Yellow
+Write-Host 'Publishing the Windows x64 application payload...'
+& dotnet publish $projectFile -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=true
+if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE." }
+Write-Host "Payload: $(Join-Path $PSScriptRoot 'bin/Release/net8.0-windows10.0.19041.0/win-x64/publish')"
 
 if ($BuildInstaller) {
-    Write-Host "Checking for Inno Setup compiler..." -ForegroundColor Cyan
-    
-    $isccSystem = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-    $isccUser = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
-    
-    $iscc = ""
-    if (Test-Path $isccSystem) { $iscc = $isccSystem }
-    elseif (Test-Path $isccUser) { $iscc = $isccUser }
-
-    if ($iscc -ne "") {
-        Write-Host "Building Installer Release..." -ForegroundColor Cyan
-        & $iscc "Setup\installer.iss"
-        Write-Host "Installer built successfully!" -ForegroundColor Green
-        Write-Host "Location: Setup\Output\SpotiFloat_Setup.exe" -ForegroundColor Yellow
-    } else {
-        Write-Host "Inno Setup compiler (ISCC.exe) not found at default location." -ForegroundColor Red
-        Write-Host "Please install Inno Setup 6 to compile the Setup executable." -ForegroundColor Red
+    $compiler = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+    $compilerPath = if ($compiler) { $compiler.Source } else { $null }
+    if (!$compilerPath) {
+        foreach ($candidate in @(
+            (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'),
+            (Join-Path $env:LOCALAPPDATA 'Programs/Inno Setup 6/ISCC.exe')
+        )) {
+            if (Test-Path -LiteralPath $candidate) { $compilerPath = $candidate; break }
+        }
     }
-} else {
-    Write-Host "Run this script with -BuildInstaller switch to compile the Inno Setup installer." -ForegroundColor Gray
+    if (!$compilerPath) { throw 'Install Inno Setup 6 and make ISCC.exe available to build the installer.' }
+    & $compilerPath (Join-Path $PSScriptRoot 'Setup/installer.iss')
+    if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed with exit code $LASTEXITCODE." }
+    Write-Host "Installer output: $(Join-Path $PSScriptRoot 'Setup/Output')"
 }

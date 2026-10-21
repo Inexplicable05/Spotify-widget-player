@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible problem with SpotiFloat.
+body:
+  - type: markdown
+    attributes:
+      value: "Browser sessions are deliberately unsupported. Please redact private information from screenshots and diagnostics. For security issues, follow SECURITY.md."
+  - type: input
+    id: version
+    attributes:
+      label: SpotiFloat version or commit
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Windows build and desktop music app/version
+    validations:
+      required: true
+  - type: input
+    id: appearance
+    attributes:
+      label: Layout, theme, album-colouring mode and size
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or additional context
+      description: Remove personal information before uploading.

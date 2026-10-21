@@ -11,6 +11,7 @@ public partial class SettingsWindow : Window
 {
     private readonly MainWindow _mainWindow;
     private bool _isInitializing = true;
+    private readonly string? _uninstaller;
 
     public SettingsWindow(MainWindow mainWindow)
     {
@@ -18,6 +19,12 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         MaxHeight = Math.Min(MaxHeight, SystemParameters.WorkArea.Height);
         LoadControls(SettingsManager.LoadSettings());
+        _uninstaller = InstallerSupport.FindUninstaller();
+        UninstallAppButton.IsEnabled = _uninstaller != null;
+        UninstallHint.Text = _uninstaller == null
+            ? "No registered installer for this copy. Portable and test builds have no uninstall action."
+            : "Opens the installer to remove this copy of SpotiFloat.";
+        VersionText.Text = $"SpotiFloat {typeof(SettingsWindow).Assembly.GetName().Version?.ToString(3)}";
     }
 
     private void LoadControls(AppSettings settings)
@@ -73,7 +80,7 @@ public partial class SettingsWindow : Window
 
     private void UpdateDependentControls()
     {
-        AlbumColourHint.Text = ColourFullBtn.IsChecked == true ? "Album accents and a tinted player backdrop. Glass stays translucent."
+        AlbumColourHint.Text = ColourFullBtn.IsChecked == true ? "Album accents and backdrop tint. Glass stays translucent."
             : ColourAccentsBtn.IsChecked == true ? "Album colour on the title, controls, progress and visualizer."
             : ColourTitleBtn.IsChecked == true ? "Album colour on the song title only."
             : "Neutral theme colours, independent of album artwork.";
@@ -129,23 +136,33 @@ public partial class SettingsWindow : Window
 
     private void RefreshButton_Click(object sender, RoutedEventArgs e) => _mainWindow.RefreshMedia();
 
-    private void RestoreDefaultButton_Click(object sender, RoutedEventArgs e)
-    {
-        var defaults = new AppSettings();
-        LoadControls(defaults);
-        _mainWindow.SwitchLayout(defaults.Layout);
-        _mainWindow.ApplyTheme(defaults.ThemeIndex);
-        SettingChanged(sender, e);
-    }
+    private void ResetSize_Click(object sender, RoutedEventArgs e) => ScaleSlider.Value = 100;
 
-    private void UninstallButton_Click(object sender, RoutedEventArgs e)
+    private void ClearDataAndExit_Click(object sender, RoutedEventArgs e)
     {
         if (System.Windows.MessageBox.Show(this,
             "Clear all saved preferences and startup registration, then exit? App files will remain on your device.",
             "Clear saved data", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes)
         {
-            SettingsManager.WipeSettingsAndUninstall();
-            System.Windows.Application.Current.Shutdown();
+            if (SettingsManager.ClearSavedData()) System.Windows.Application.Current.Shutdown();
+            else System.Windows.MessageBox.Show(this, "Saved data could not be cleared. Please try again.", "Clear saved data", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void UninstallButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_uninstaller == null || System.Windows.MessageBox.Show(this,
+            "Open the uninstaller for this copy of SpotiFloat? The widget will close. Saved preferences are separate from app files.",
+            "Uninstall SpotiFloat", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        try
+        {
+            if (System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_uninstaller) { UseShellExecute = true }) != null)
+                System.Windows.Application.Current.Shutdown();
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or System.IO.IOException or InvalidOperationException)
+        {
+            System.Windows.MessageBox.Show(this, "The uninstaller could not be opened. You can also remove SpotiFloat from Windows Settings > Apps.",
+                "Uninstall SpotiFloat", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

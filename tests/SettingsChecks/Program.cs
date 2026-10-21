@@ -23,8 +23,16 @@ internal static class Program
         Directory.CreateDirectory(Previews);
         try
         {
+            foreach (var icon in new[] { "icon.ico", "tray-dark.ico", "tray-light.ico" })
+            {
+                var decoder = new IconBitmapDecoder(new Uri($"pack://application:,,,/SpotiFloat;component/{icon}"), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+                Check(decoder.Frames.Count == 8, $"Missing multi-resolution icon frames: {icon}");
+                Check(decoder.Frames.Any(frame => frame.PixelWidth == 16) && decoder.Frames.Any(frame => frame.PixelWidth == 256), $"Missing tray/application icon sizes: {icon}");
+            }
+            Console.WriteLine("PASS: embedded app and light/dark tray icons decode at eight sizes, including 16 and 256 pixels.");
             VerifyContrast();
             VerifySettingsMigration();
+            VerifyUninstallerResolution();
             VerifyExtraction();
             VerifyButtonContrast(main);
             VerifyPlayers(main);
@@ -93,6 +101,32 @@ internal static class Program
         }
         Check(new AppSettings().AlbumColouring == AlbumColourMode.Off, "New users must default to Off");
         Console.WriteLine("PASS: legacy Dynamic/title settings migration, new defaults, invalid mode and JSON round trips (no file/registry writes).");
+    }
+
+    private static void VerifyUninstallerResolution()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "SpotiFloat-installer-checks-" + Guid.NewGuid().ToString("N"));
+        string installed = Path.Combine(directory, "Installed App");
+        Directory.CreateDirectory(installed);
+        string uninstaller = Path.Combine(installed, "unins000.exe");
+        File.WriteAllBytes(uninstaller, []);
+        try
+        {
+            Check(InstallerSupport.ResolveUninstaller(installed, installed, $"\"{uninstaller}\"") == uninstaller, "Registered uninstaller not resolved");
+            Check(InstallerSupport.ResolveUninstaller(installed + Path.DirectorySeparatorChar, installed, $"\"{uninstaller}\" /SILENT") == uninstaller, "Quoted command/path normalization failed");
+            Check(InstallerSupport.ResolveUninstaller(directory, installed, $"\"{uninstaller}\"") == null, "Portable copy could uninstall another installation");
+            Check(InstallerSupport.ResolveUninstaller(installed, directory, $"\"{uninstaller}\"") == null, "Mismatched registration accepted");
+            Check(InstallerSupport.ResolveUninstaller(installed, installed, "cmd.exe /c something") == null, "Shell command accepted as uninstaller");
+            Check(InstallerSupport.ResolveUninstaller(installed, installed, "\"unterminated") == null, "Malformed command accepted");
+            Check(InstallerSupport.ResolveUninstaller(installed, installed, Path.Combine(installed, "unins001.exe")) == null, "Missing uninstaller accepted");
+        }
+        finally
+        {
+            File.Delete(uninstaller);
+            Directory.Delete(installed);
+            Directory.Delete(directory);
+        }
+        Console.WriteLine("PASS: installed/portable uninstall resolution, quoted paths, malformed/missing/mismatched commands; nothing launched or removed outside fixtures.");
     }
 
     private static void VerifyExtraction()
@@ -281,24 +315,77 @@ internal static class Program
                 Check(double.IsFinite(slider.Value) && slider.Value >= 10 && slider.Value <= 300, "Invalid scale accepted");
             }
             Check(slider.Value == 125, "Editable size failed");
+            Check(slider.Minimum == 10 && slider.Maximum == 300, "Existing size range changed");
+            typeof(SettingsWindow).GetMethod("ResetSize_Click", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(settings, new object[] { settings, new RoutedEventArgs() });
+            Check(slider.Value == 100, "Size-only reset failed");
+            Check(typeof(SettingsWindow).GetMethod("RestoreDefaultButton_Click", BindingFlags.Instance | BindingFlags.NonPublic) == null, "General reset remains");
+            var version = typeof(MainWindow).Assembly.GetName().Version!;
+            Check(((TextBlock)settings.FindName("VersionText")).Text == $"SpotiFloat {version.Major}.{version.Minor}.{version.Build}", "Version is missing or incorrect");
+            Check(((Button)settings.FindName("UninstallAppButton")).IsEnabled == (InstallerSupport.FindUninstaller() != null), "Uninstall availability does not match this copy");
+            Check(((TextBlock)settings.FindName("UninstallHint")).Text.Length > 0, "Uninstall availability explanation missing");
             Check(settings.FindName("ThemeDynamicBtn") == null && settings.FindName("DynamicTitleColourCheckBox") == null, "Old colour controls remain");
             Check(((CheckBox)settings.FindName("LockCheckBox")).Content.ToString() == "Lock position", "Position label reversed");
             settings.Show();
+            var updateDependent = typeof(SettingsWindow).GetMethod("UpdateDependentControls", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            ((RadioButton)settings.FindName("ZOrderDesktopChoice")).IsChecked = true;
+            updateDependent.Invoke(settings, null);
+            Check(!((CheckBox)settings.FindName("HideOnFullscreenCheckBox")).IsEnabled, "Desktop mode must disable fullscreen hiding");
+            ((RadioButton)settings.FindName("ZOrderTopmostChoice")).IsChecked = true;
+            updateDependent.Invoke(settings, null);
+            Check(((CheckBox)settings.FindName("HideOnFullscreenCheckBox")).IsEnabled, "On top must reenable fullscreen hiding");
+            foreach (string name in new[] { "RefreshMediaButton", "ExitAppButton", "CloseSettingsButton" })
+            {
+                var button = (Button)settings.FindName(name);
+                Check(System.Windows.Automation.AutomationProperties.GetName(button).Length > 0 && button.ToolTip != null && button.Focusable,
+                    "Icon button needs an accessible name, tooltip and keyboard focus");
+            }
             foreach (int theme in new[] { 0, 1, 2 })
             foreach (var (mode, name) in new[] { (AlbumColourMode.Off, "ColourOffBtn"), (AlbumColourMode.Title, "ColourTitleBtn"), (AlbumColourMode.Accents, "ColourAccentsBtn"), (AlbumColourMode.Full, "ColourFullBtn") })
             {
                 main.ApplyTheme(theme);
                 ((RadioButton)settings.FindName(new[] { "ThemeDarkBtn", "ThemeLightBtn", "ThemeGlassBtn" }[theme])).IsChecked = true;
                 var choice = (RadioButton)settings.FindName(name);
-                choice.IsChecked = true;
+                var peer = System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(choice)!;
+                var selection = (System.Windows.Automation.Provider.ISelectionItemProvider)peer.GetPattern(System.Windows.Automation.Peers.PatternInterface.SelectionItem)!;
+                selection.Select();
+                Check(selection.IsSelected, "Styled segment lost native selection automation");
                 typeof(SettingsWindow).GetMethod("UpdateDependentControls", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(settings, null);
                 Check(choice.IsEnabled && choice.GroupName == "AlbumColour", "Mode unavailable");
                 settings.UpdateLayout();
+                var selectedSurface = (Border)choice.Template.FindName("Surface", choice);
+                Check(((SolidColorBrush)selectedSurface.Background).Color == BrushColour(settings, "SettingsChoiceBackground"), "Selected pill ignored theme");
+                var group = (FrameworkElement)choice.Parent;
+                Check(System.Windows.Input.KeyboardNavigation.GetTabNavigation(group) == System.Windows.Input.KeyboardNavigationMode.Once
+                    && System.Windows.Input.KeyboardNavigation.GetDirectionalNavigation(group) == System.Windows.Input.KeyboardNavigationMode.Cycle,
+                    "Segmented group lost native focus navigation");
+                Check(TextContrast.Ratio(BrushColour(settings, "SettingsAccent"), BrushColour(settings, "SettingsOnAccent")) >= 4.5,
+                    "Checkmark contrast failed");
+                var checkbox = (CheckBox)settings.FindName("LockCheckBox");
+                checkbox.IsChecked = true;
+                var check = (System.Windows.Shapes.Path)checkbox.Template.FindName("Check", checkbox);
+                var box = (Border)checkbox.Template.FindName("Box", checkbox);
+                Check(check.Visibility == Visibility.Visible && TextContrast.Ratio(((SolidColorBrush)check.Stroke).Color, ((SolidColorBrush)box.Background).Color) >= 4.5,
+                    "Rendered checkbox ignores contrast palette");
                 Check(((TextBlock)settings.FindName("AlbumColourHint")).ActualHeight > 0, "Mode description missing");
                 SavePreview(settings, Path.Combine(Previews, $"settings-{theme}-{mode}.png"));
             }
+            var sliderPeer = System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(slider)!;
+            var range = (System.Windows.Automation.Provider.IRangeValueProvider)sliderPeer.GetPattern(System.Windows.Automation.Peers.PatternInterface.RangeValue)!;
+            Check(range.Minimum == 10 && range.Maximum == 300, "Styled slider lost accessible range");
+            range.SetValue(300);
+            Check(slider.Value == 300, "Accessible slider input failed");
+            var lockBox = (CheckBox)settings.FindName("LockCheckBox");
+            var lockPeer = System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(lockBox)!;
+            var toggle = (System.Windows.Automation.Provider.IToggleProvider)lockPeer.GetPattern(System.Windows.Automation.Peers.PatternInterface.Toggle)!;
+            bool wasChecked = lockBox.IsChecked == true;
+            toggle.Toggle();
+            Check((lockBox.IsChecked == true) != wasChecked, "Styled checkbox lost native toggle automation");
             ((Expander)settings.FindName("AdvancedExpander")).IsExpanded = true;
             settings.UpdateLayout();
+            var advancedScroll = (ScrollViewer)settings.FindName("SettingsScroller");
+            advancedScroll.ScrollToEnd();
+            settings.UpdateLayout();
+            SavePreview(settings, Path.Combine(Previews, "settings-advanced.png"));
             Check(settings.ActualHeight <= settings.MaxHeight, "Settings exceeds screen height");
             settings.MaxHeight = 420;
             settings.UpdateLayout();
@@ -307,7 +394,7 @@ internal static class Program
             scroll.ScrollToEnd();
             settings.UpdateLayout();
             SavePreview(settings, Path.Combine(Previews, "settings-small-screen.png"));
-            Console.WriteLine("PASS: four mode choices in three themes, size validation and short-screen scrolling; no preference/registry writes.");
+            Console.WriteLine("PASS: modern settings in three themes, native segments, icon labels, checkbox contrast, size-only reset, desktop dependency, version/uninstall state and scrolling; no preference/registry writes.");
         }
         finally { settings.Close(); }
     }
@@ -381,6 +468,8 @@ internal static class Program
 
     private static void SavePreview(FrameworkElement window, string path)
     {
+        window.UpdateLayout();
+        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Render);
         var bitmap = new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth), (int)Math.Ceiling(window.ActualHeight), 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(window);
         var encoder = new PngBitmapEncoder();

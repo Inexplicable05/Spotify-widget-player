@@ -1,13 +1,28 @@
+# .NET and IDE output
+**/bin/
+**/obj/
+.vs/
+.idea/
+*.user
+*.suo
+TestResults/
+artifacts/
+SpotiFloat/Setup/Output/
+
+# Local settings, secrets and caches
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db
+
+# Leftovers from the retired Python prototype
+/app/
 .venv/
 __pycache__/
 *.py[cod]
-*.log
-.env
-.env.local
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-coverage.xml
-htmlcov/
 build/
 dist/

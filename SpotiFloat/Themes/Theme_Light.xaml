@@ -1,6 +1,10 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:System="clr-namespace:System;assembly=mscorlib">
+    <SolidColorBrush x:Key="SettingsChoiceBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SettingsAccent" Color="#16833A"/>
+    <SolidColorBrush x:Key="SettingsOnAccent" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SettingsDanger" Color="#B91C1C"/>
     <SolidColorBrush x:Key="PlayerVisualizerForeground" Color="Black"/>
     <!-- Light Theme -->
     <Color x:Key="PlayerOverlayColour">#E6F2F2F2</Color>

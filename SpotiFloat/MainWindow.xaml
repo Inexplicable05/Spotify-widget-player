@@ -13,7 +13,7 @@
     <Grid>
         <tb:TaskbarIcon x:Name="TrayIcon"
                         ToolTipText="SpotiFloat"
-                        IconSource="icon.ico"
+                        IconSource="tray-dark.ico"
                         TrayMouseDoubleClick="TrayIcon_TrayMouseDoubleClick">
             <tb:TaskbarIcon.ContextMenu>
                 <ContextMenu>

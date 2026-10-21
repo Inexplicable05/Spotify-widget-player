@@ -10,4 +10,6 @@ Full Bar checks cover 648 palettes (216 artwork colours across three themes). Ve
 
 Retains shared context-menu, percentage input validation and short-screen scrolling checks. Square seek-bar checks cover 0/5/50/95/100%, marker/rail centre alignment, marker/fill endpoint alignment, rounded clipping, tooltip clearance and dismissal at 100% and 300% size. Every visualizer bar bottom must meet the idle rail top without a gap or overlap.
 
-The test suppresses preference persistence. Manually verify mode selection with real album covers, saving/reopening Settings, keyboard navigation, and Glass on your wallpaper before accepting the changes.
+Modern Settings checks cover themed selected pills, readable custom checkboxes, native selection/range/toggle automation, accessible icon names, size-only reset, the 10–300% range, Desktop/fullscreen dependency, version and uninstall availability, and short-screen scrolling. Uninstaller resolution uses temporary empty fixtures and checks registered-directory matching, quoted commands, missing files and malformed paths. It never launches an uninstaller or modifies installation registry entries.
+
+The test suppresses preference persistence. Manually verify mode selection with real album covers, saving/reopening Settings, keyboard navigation, and Glass on your wallpaper before accepting the changes. Actual data clearing and uninstall are intentionally not executed by the checks.

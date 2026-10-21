@@ -10,6 +10,7 @@
     <AssemblyName>SpotiFloat</AssemblyName>
     <Product>SpotiFloat</Product>
     <Title>SpotiFloat</Title>
+    <Version>1.2.0</Version>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -20,6 +21,19 @@
 
   <ItemGroup>
     <Resource Include="icon.ico" />
+    <Resource Include="tray-dark.ico" />
+    <Resource Include="tray-light.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="../LICENSE" Link="LICENSE" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../docs/licenses/*" Link="docs/licenses/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="CopyRuntimeNotices" AfterTargets="Publish" Condition="'$(SelfContained)' == 'true'">
+    <Copy SourceFiles="%(ResolvedRuntimePack.PackageDirectory)/LICENSE.TXT" DestinationFolder="$(PublishDir)runtime-notices/%(ResolvedRuntimePack.Identity)" Condition="Exists('%(ResolvedRuntimePack.PackageDirectory)/LICENSE.TXT')" />
+    <Copy SourceFiles="%(ResolvedRuntimePack.PackageDirectory)/LICENSE" DestinationFolder="$(PublishDir)runtime-notices/%(ResolvedRuntimePack.Identity)" Condition="Exists('%(ResolvedRuntimePack.PackageDirectory)/LICENSE')" />
+    <Copy SourceFiles="%(ResolvedRuntimePack.PackageDirectory)/THIRD-PARTY-NOTICES.TXT" DestinationFolder="$(PublishDir)runtime-notices/%(ResolvedRuntimePack.Identity)" Condition="Exists('%(ResolvedRuntimePack.PackageDirectory)/THIRD-PARTY-NOTICES.TXT')" />
+  </Target>
 </Project>
