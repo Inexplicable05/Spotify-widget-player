@@ -37,6 +37,8 @@ try {
     $failed = $false
     try { & $buildScript -BuildInstaller } catch { $failed = $_.Exception.Message -like 'Installer compilation failed*' }
     if (!$failed) { throw 'Installer failure was reported as success.' }
+    # Do not expose the simulated compiler failure as the test process exit code.
+    $global:LASTEXITCODE = 0
     Write-Output 'PASS: build helper paths, optional installer dispatch and external-tool failures (tools mocked).'
 }
 finally {
