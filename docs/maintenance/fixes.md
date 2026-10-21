@@ -190,7 +190,7 @@
 - **Verification:** Automated settings checks passed in all three themes: selected-pill resources, native radio/slider/checkbox automation, icon labels/tooltips, checkmark contrast at least 4.5:1, 10–300% size validation and size-only reset, Desktop/fullscreen dependency, version/uninstall availability and scrolling. Uninstaller fixture checks passed for matching/mismatched directories, quoted/malformed commands and missing executables. Existing album-colouring/player tests passed. Inspected Dark, Light, Glass, expanded Advanced and short-screen renders. Release build passed with 0 warnings/errors; diff whitespace check passed.
 - **Limits / remaining checks:** Actual uninstall/data removal were not run. Uninstall is unavailable in this test build because it is not the registered installed copy. Live keyboard navigation, saving/reopening preferences and Glass against the actual wallpaper remain for user acceptance. Glass uses the current translucent WPF treatment; HTML backdrop blur is not introduced.
 - **User acceptance:** Pending.
-- **Commit:** None.
+- **Commit:** `454c494` - Prepare SpotiFloat 1.2.0 with blue branding, modern settings and Windows setup.
 
 ### P014 - Bar media-button circles lose separation from the body in Full colouring
 
@@ -215,7 +215,7 @@
 - **Implementation:** Footer uses one row with a quiet autosave hint on the left and a themed button on the right containing the GitHub vector logo and "Made by inexplicable05". The full button reuses the existing profile handler for `https://github.com/Inexplicable05`, with an accessible name and tooltip. No external asset or dependency added.
 - **Verification:** Existing WPF checks passed and rendered all three themes. Inspected the Light preview for one-row fit. Release build passed with 0 warnings/errors; diff whitespace check passed. External browser launch was not exercised.
 - **User acceptance:** Pending.
-- **Commit:** None.
+- **Commit:** `454c494` - Prepare SpotiFloat 1.2.0 with blue branding, modern settings and Windows setup.
 
 ### P017 - Repository cleanup and public-source documentation
 
@@ -225,7 +225,7 @@
 - **Verification:** Release build passed with 0 warnings/errors. SourcePolicyChecks and SettingsChecks passed. Local documentation links/assets and five Mermaid blocks checked; workflow/issue YAML parses. Build-helper checks passed with mocked tools for paths, optional installer dispatch and failure handling. Common credential/private-key patterns were not found in textual Git history; this is not a comprehensive security audit. Generated output and legacy caches match ignore rules. New CI has not run on GitHub, and no installer was built or validated.
 - **Limits:** This change removes old files from the working tree, not from existing Git history or GitHub Releases. No history rewrite, visibility change, commit, push or new installer was performed. The MIT licence covers project-owned source; third-party materials retain their existing terms. P015/P016 acceptance remains separate.
 - **User acceptance:** Pending.
-- **Commit:** None.
+- **Commit:** `454c494` - Prepare SpotiFloat 1.2.0 with blue branding, modern settings and Windows setup.
 
 ### P018 - Blue SF application branding
 
@@ -234,7 +234,7 @@
 - **Implementation:** One SVG geometry source generates the blue mark, cream-on-blue application icon, monochrome artwork and light/dark taskbar icons. Icons include 16/20/24/32/48/64/128/256-pixel frames. Windows taskbar theme selects the tray variant; app/window/setup/fallback artwork share the application icon.
 - **Verification:** Exported icons decode at all eight sizes. WPF checks load all three embedded icon resources; app icon preview inspected. The installed application starts successfully.
 - **Limits:** No trademark clearance or exhaustive DPI/taskbar testing. The clean vector geometry follows the selected raster concept; it is not a crop of the review board.
-- **Commit:** None.
+- **Commit:** `454c494` - Prepare SpotiFloat 1.2.0 with blue branding, modern settings and Windows setup.
 
 ### P019 - Public release and installed-app distribution
 
@@ -243,4 +243,4 @@
 - **Implementation:** Version 1.2.0; self-contained Windows x64 Inno Setup installer with stable AppId, per-user installation without elevation, Windows uninstall registration, Start menu shortcut, optional desktop shortcut, versioned filename and bundled project/dependency/runtime notices. Startup opt-in remains in Settings. Uninstall preserves preferences and removes the app startup entry. Public docs describe installation, unsigned binaries and older machine-wide installations.
 - **Verification:** Release build succeeded without warnings/errors; source-policy, WPF/settings/icon and mocked build-helper checks passed. Disposable real setup test checked uninstall registration, installed notices, shortcut and app startup. Real uninstall removed registration/files/shortcut; existing preference hash, startup value and machine-wide installation metadata remained unchanged. Common credential patterns were absent from current text and textual Git history; not a comprehensive security audit.
 - **Limits:** Installer is unsigned. No clean-machine Windows 10/ARM or complete live-service matrix was run. Existing administrator-installed copies remain separate and may need manual removal. Existing player issues and user-acceptance statuses above remain in force.
-- **Commit:** None.
+- **Commit:** `454c494` - Prepare SpotiFloat 1.2.0 with blue branding, modern settings and Windows setup.
