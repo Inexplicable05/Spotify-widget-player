@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:System="clr-namespace:System;assembly=mscorlib">
+    <SolidColorBrush x:Key="PlayerVisualizerForeground" Color="White"/>
     <!-- Glass Theme (Translucent) -->
     <Color x:Key="PlayerOverlayColour">#CC121212</Color>
     <LinearGradientBrush x:Key="AppBackground" StartPoint="0,0" EndPoint="1,1">

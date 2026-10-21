@@ -131,7 +131,7 @@ namespace SpotiFloat.Controls
                 StrokeLineJoin  = PenLineJoin.Round,
                 IsHitTestVisible = false
             };
-            _waveform.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "PrimaryTextForeground");
+            _waveform.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, "PlayerVisualizerForeground");
             WaveformCanvas.Children.Add(_waveform);
         }
 

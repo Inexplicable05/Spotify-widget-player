@@ -9,5 +9,6 @@
   <ItemGroup>
     <ProjectReference Include="../../SpotiFloat/SpotiFloat.csproj"/>
     <Compile Include="../../SpotiFloat/TextContrast.cs" Link="TextContrast.cs"/>
+    <Compile Include="../../SpotiFloat/AlbumPalette.cs" Link="AlbumPalette.cs"/>
   </ItemGroup>
 </Project>

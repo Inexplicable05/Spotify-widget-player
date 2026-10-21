@@ -29,13 +29,15 @@ public partial class SettingsWindow : Window
         ThemeDarkBtn.IsChecked = settings.ThemeIndex == 0;
         ThemeLightBtn.IsChecked = settings.ThemeIndex == 1;
         ThemeGlassBtn.IsChecked = settings.ThemeIndex == 2;
-        ThemeDynamicBtn.IsChecked = settings.ThemeIndex == 3;
+        ColourOffBtn.IsChecked = settings.AlbumColouring == AlbumColourMode.Off;
+        ColourTitleBtn.IsChecked = settings.AlbumColouring == AlbumColourMode.Title;
+        ColourAccentsBtn.IsChecked = settings.AlbumColouring == AlbumColourMode.Accents;
+        ColourFullBtn.IsChecked = settings.AlbumColouring == AlbumColourMode.Full;
         LockCheckBox.IsChecked = settings.IsLocked;
         ZOrderTopmostChoice.IsChecked = settings.ZOrder == WidgetZOrder.Topmost;
         ZOrderDesktopChoice.IsChecked = settings.ZOrder == WidgetZOrder.Desktop;
         HideOnFullscreenCheckBox.IsChecked = settings.HideOnFullscreen;
         RunOnStartupCheckBox.IsChecked = settings.RunOnStartup;
-        DynamicTitleColourCheckBox.IsChecked = settings.EnableDynamicTitleColour;
         ScaleSlider.Value = double.IsFinite(settings.Scale) ? Math.Clamp(settings.Scale * 100, 10, 300) : 100;
         ScaleTextBox.Text = ScaleSlider.Value.ToString("0");
         UpdateDependentControls();
@@ -71,11 +73,10 @@ public partial class SettingsWindow : Window
 
     private void UpdateDependentControls()
     {
-        bool isDynamic = ThemeDynamicBtn.IsChecked == true;
-        DynamicTitleColourCheckBox.IsEnabled = !isDynamic;
-        DynamicTitleHint.Text = isDynamic ? "Dynamic theme keeps text readable automatically."
-            : ThemeGlassBtn.IsChecked == true ? "Album colour with a subtle contrasting halo."
-            : "Adjusts album colour to keep the title readable.";
+        AlbumColourHint.Text = ColourFullBtn.IsChecked == true ? "Album accents and a tinted player backdrop. Glass stays translucent."
+            : ColourAccentsBtn.IsChecked == true ? "Album colour on the title, controls, progress and visualizer."
+            : ColourTitleBtn.IsChecked == true ? "Album colour on the song title only."
+            : "Neutral theme colours, independent of album artwork.";
         HideOnFullscreenCheckBox.IsEnabled = ZOrderTopmostChoice.IsChecked == true;
     }
 
@@ -85,7 +86,9 @@ public partial class SettingsWindow : Window
         _mainWindow.IsLocked = LockCheckBox.IsChecked == true;
         _mainWindow.ZOrder = ZOrderTopmostChoice.IsChecked == true ? WidgetZOrder.Topmost : WidgetZOrder.Desktop;
         _mainWindow.HideOnFullscreen = HideOnFullscreenCheckBox.IsChecked == true;
-        _mainWindow.EnableDynamicTitleColour = DynamicTitleColourCheckBox.IsChecked == true;
+        _mainWindow.AlbumColouring = ColourFullBtn.IsChecked == true ? AlbumColourMode.Full
+            : ColourAccentsBtn.IsChecked == true ? AlbumColourMode.Accents
+            : ColourTitleBtn.IsChecked == true ? AlbumColourMode.Title : AlbumColourMode.Off;
         if (_mainWindow.AppScaleTransform is { } scale)
             scale.ScaleX = scale.ScaleY = ScaleSlider.Value / 100;
         UpdateDependentControls();
@@ -97,7 +100,7 @@ public partial class SettingsWindow : Window
             IsLocked = _mainWindow.IsLocked,
             ZOrder = _mainWindow.ZOrder,
             HideOnFullscreen = _mainWindow.HideOnFullscreen,
-            EnableDynamicTitleColour = _mainWindow.EnableDynamicTitleColour,
+            AlbumColouring = _mainWindow.AlbumColouring,
             RunOnStartup = RunOnStartupCheckBox.IsChecked == true,
             Scale = ScaleSlider.Value / 100
         });

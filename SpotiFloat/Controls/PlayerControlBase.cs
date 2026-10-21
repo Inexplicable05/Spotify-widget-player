@@ -121,26 +121,16 @@ namespace SpotiFloat.Controls
             if (FindName("TitleText") is not TextBlock title) return;
             title.SetResourceReference(TextBlock.ForegroundProperty, "PrimaryTextForeground");
             title.Effect = null;
-            if (themeIndex == 3 || albumColour == null) return;
+            if (albumColour == null) return;
+            title.Foreground = new SolidColorBrush(TextContrast.AccentOn(albumColour.Value,
+                AlbumPalette.BackgroundFor(this, themeIndex)));
             if (themeIndex == 2)
             {
-                title.Foreground = new SolidColorBrush(TextContrast.AccentOn(albumColour.Value, Colors.Black));
                 title.Effect = new System.Windows.Media.Effects.DropShadowEffect
                 {
                     Color = Colors.Black, ShadowDepth = 0, BlurRadius = 2, Opacity = 1
                 };
-                return;
             }
-            if (TryFindResource("AppBackground") is not SolidColorBrush surface) return;
-            var background = surface.Color;
-            if (FindName("HoverGroup") != null && TryFindResource("PlayerOverlayColour") is System.Windows.Media.Color overlay)
-            {
-                // Test against the least favourable image beneath the translucent overlay.
-                byte behind = TextContrast.ReadableOn(overlay) == Colors.White ? (byte)255 : (byte)0;
-                byte Composite(byte value) => (byte)Math.Round((value * overlay.A + behind * (255 - overlay.A)) / 255.0);
-                background = System.Windows.Media.Color.FromRgb(Composite(overlay.R), Composite(overlay.G), Composite(overlay.B));
-            }
-            title.Foreground = new SolidColorBrush(TextContrast.AccentOn(albumColour.Value, background));
         }
 
         /// Smoothly animates an element's Opacity to <paramref name="to"/> over

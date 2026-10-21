@@ -15,7 +15,6 @@ using Windows.Storage.Streams;
 using SpotiFloat.Controls;
 using WpfApp     = System.Windows.Application;
 using WpfColor   = System.Windows.Media.Color;
-using WpfColors  = System.Windows.Media.Colors;
 
 namespace SpotiFloat
 {
@@ -46,14 +45,16 @@ namespace SpotiFloat
         public bool         HideOnFullscreen { get; set; } = false;
         public bool         IsLocked        { get; set; } = false;
         public int          ThemeIndex      { get; set; } = 0;
-        public bool         EnableDynamicTitleColour { get; set; } = true;
+        public AlbumColourMode AlbumColouring { get; set; } = AlbumColourMode.Off;
+        private BitmapSource? _paletteArtwork;
+        private WpfColor? _albumAccent;
         public PlayerLayout Layout          { get; set; } = PlayerLayout.Bar;
 
         // Expose scale transform of the active player for Settings window
         public ScaleTransform? AppScaleTransform =>
             (_activeControl as IPlayerControl)?.AppScaleTransform;
 
-        // Album art of the currently active player (for dynamic theme)
+        // Album art of the currently active player.
         public BitmapSource? CurrentAlbumArt => _lastState?.Art;
 
         // â”€â”€ Media session â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -66,7 +67,7 @@ namespace SpotiFloat
         private MediaState? _lastState;
 
         // â”€â”€ Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        private UIElement?   _activeControl;
+        private FrameworkElement? _activeControl;
         private IPlayerControl? _activePlayer => _activeControl as IPlayerControl;
         private SettingsWindow? _settingsWindow;
 
@@ -123,7 +124,7 @@ namespace SpotiFloat
             newControl.PlayPauseRequested   += OnPlayPauseRequested;
             newControl.NextRequested        += OnNextRequested;
 
-            _activeControl      = (UIElement)newControl;
+            _activeControl      = (FrameworkElement)newControl;
             PlayerHost.Content  = _activeControl;
 
             // Apply current scale
@@ -137,7 +138,7 @@ namespace SpotiFloat
             // Push the last known media state immediately
             if (_lastState != null)
                 newControl.UpdateMediaState(_lastState);
-            RefreshTitleColour();
+            RefreshAppearance();
 
         }
 
@@ -222,7 +223,7 @@ namespace SpotiFloat
             ZOrder                  = s.ZOrder;
             HideOnFullscreen        = s.HideOnFullscreen;
             ThemeIndex              = s.ThemeIndex;
-            EnableDynamicTitleColour= s.EnableDynamicTitleColour;
+            AlbumColouring          = s.AlbumColouring;
 
             ApplyTheme(s.ThemeIndex);
 
@@ -442,9 +443,8 @@ namespace SpotiFloat
 
         public void ApplyTheme(int themeIndex)
         {
-            ThemeIndex = themeIndex;
-            ClearDynamicThemeOverrides();
-            string themeFile = themeIndex switch
+            ThemeIndex = Math.Clamp(themeIndex, 0, 2);
+            string themeFile = ThemeIndex switch
             {
                 1 => "Theme_Light.xaml",
                 2 => "Theme_Glass.xaml",
@@ -458,137 +458,16 @@ namespace SpotiFloat
 
         public void RefreshAppearance()
         {
-            if (ThemeIndex == 3)
+            if (_activeControl == null) return;
+            var artwork = _lastState?.Art;
+            if (!ReferenceEquals(artwork, _paletteArtwork))
             {
-                if (_lastState?.Art != null) ApplyDynamicTheme(_lastState.Art);
-                else ClearDynamicThemeOverrides();
+                _paletteArtwork = artwork;
+                _albumAccent = artwork == null ? null : AlbumPalette.Extract(artwork);
             }
-            RefreshTitleColour();
+            AlbumPalette.Apply(_activeControl, ThemeIndex, AlbumColouring, _albumAccent);
+            _activePlayer?.ApplyTitleAppearance(ThemeIndex,
+                AlbumColouring == AlbumColourMode.Off ? null : _albumAccent);
         }
-
-        private void RefreshTitleColour()
-        {
-            WpfColor? accent = EnableDynamicTitleColour && _lastState?.Art != null
-                ? GetDominantColor(_lastState.Art) : null;
-            _activePlayer?.ApplyTitleAppearance(ThemeIndex, accent);
-        }
-
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        // Dynamic Theme
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-        private static readonly string[] DynamicThemeKeys =
-        {
-            "AppBackground", "AppBorder", "PrimaryTextForeground", "SecondaryTextForeground",
-            "ButtonBackground", "ButtonIconForeground",
-            "SliderTrackBackground", "SliderTrackHover", "SliderThumb",
-            "AlbumArtBackground", "AlbumArtBorder",
-            "TooltipBackground", "TooltipForeground",
-            "WindowShadowOpacity",
-            "SettingsPopupBackground", "SettingsPopupBorder",
-            "SettingsElementBackground", "SettingsElementBorder",
-            "SettingsElementHover", "SettingsIconForeground", "PlayerOverlayColour"
-        };
-
-        public static void ClearDynamicThemeOverrides()
-        {
-            var res = WpfApp.Current.Resources;
-            foreach (var key in DynamicThemeKeys)
-                if (res.Contains(key)) res.Remove(key);
-        }
-
-        public void ApplyDynamicTheme(BitmapSource source)
-        {
-            WpfColor seed = GetDominantColor(source);
-            byte sR = (byte)(seed.R * 0.72 + 18);
-            byte sG = (byte)(seed.G * 0.72 + 18);
-            byte sB = (byte)(seed.B * 0.72 + 18);
-            WpfColor surface = WpfColor.FromRgb(sR, sG, sB);
-
-            WpfColor onSurface = TextContrast.ReadableOn(surface);
-            bool isDark = onSurface == WpfColors.White;
-            WpfColor secondaryFg = onSurface;
-            WpfColor surfaceVar   = isDark
-                ? WpfColor.FromRgb(Clamp(sR - 15, 0, 255), Clamp(sG - 15, 0, 255), Clamp(sB - 15, 0, 255))
-                : WpfColor.FromRgb(Clamp(sR + 15, 0, 255), Clamp(sG + 15, 0, 255), Clamp(sB + 15, 0, 255));
-            WpfColor borderColor  = WpfColor.FromArgb(isDark ? (byte)70  : (byte)50,  0, 0, 0);
-            WpfColor sliderTrack  = WpfColor.FromArgb(isDark ? (byte)55  : (byte)45,  onSurface.R, onSurface.G, onSurface.B);
-            WpfColor sliderHover  = WpfColor.FromArgb(isDark ? (byte)110 : (byte)90,  onSurface.R, onSurface.G, onSurface.B);
-            WpfColor albumBorder  = WpfColor.FromArgb(isDark ? (byte)80  : (byte)60,  onSurface.R, onSurface.G, onSurface.B);
-            WpfColor tooltipBg    = WpfColor.FromRgb(
-                Clamp(isDark ? sR - 20 : sR + 20, 0, 255),
-                Clamp(isDark ? sG - 20 : sG + 20, 0, 255),
-                Clamp(isDark ? sB - 20 : sB + 20, 0, 255));
-
-            var res = WpfApp.Current.Resources;
-            res["AppBackground"]          = new SolidColorBrush(surface);
-            res["AppBorder"]              = new SolidColorBrush(borderColor);
-            res["PrimaryTextForeground"]  = new SolidColorBrush(onSurface);
-            res["PlayerOverlayColour"] = surface;
-            res["SecondaryTextForeground"]= new SolidColorBrush(secondaryFg);
-            res["ButtonBackground"]       = new SolidColorBrush(surfaceVar);
-            res["ButtonIconForeground"]   = new SolidColorBrush(onSurface);
-            res["SliderTrackBackground"]  = new SolidColorBrush(sliderTrack);
-            res["SliderTrackHover"]       = new SolidColorBrush(sliderHover);
-            res["SliderThumb"]            = new SolidColorBrush(onSurface);
-            res["AlbumArtBackground"]     = new SolidColorBrush(surfaceVar);
-            res["AlbumArtBorder"]         = new SolidColorBrush(albumBorder);
-            res["TooltipBackground"]      = new SolidColorBrush(tooltipBg);
-            res["TooltipForeground"]      = new SolidColorBrush(onSurface);
-            res["WindowShadowOpacity"]    = isDark ? 0.65 : 0.35;
-
-            if (ThemeIndex == 3)
-            {
-                WpfColor settingsBg = surface;
-                byte overlay = isDark ? (byte)0 : (byte)255;
-                WpfColor settingsEl = WpfColor.FromArgb(45, overlay, overlay, overlay);
-                WpfColor settingsHov = WpfColor.FromArgb(70, overlay, overlay, overlay);
-                res["SettingsPopupBackground"]  = new SolidColorBrush(settingsBg);
-                res["SettingsPopupBorder"]      = new SolidColorBrush(borderColor);
-                res["SettingsElementBackground"]= new SolidColorBrush(settingsEl);
-                res["SettingsElementBorder"]    = new SolidColorBrush(settingsEl);
-                res["SettingsElementHover"]     = new SolidColorBrush(settingsHov);
-                res["SettingsIconForeground"]   = new SolidColorBrush(secondaryFg);
-            }
-            RefreshTitleColour();
-        }
-
-        private static WpfColor GetDominantColor(BitmapSource source)
-        {
-            var scaled = new TransformedBitmap(source,
-                new ScaleTransform(32.0 / source.PixelWidth, 32.0 / source.PixelHeight));
-            int bpp    = (scaled.Format.BitsPerPixel + 7) / 8;
-            int stride = scaled.PixelWidth * bpp;
-            byte[] px  = new byte[scaled.PixelHeight * stride];
-            scaled.CopyPixels(px, stride, 0);
-
-            long r = 0, g = 0, b = 0, n = 0;
-            for (int i = 0; i < px.Length; i += bpp * 5)
-            {
-                if (i + 2 >= px.Length) break;
-                b += px[i]; g += px[i + 1]; r += px[i + 2]; n++;
-            }
-            if (n == 0) return WpfColors.White;
-
-            byte avgR = (byte)(r / n), avgG = (byte)(g / n), avgB = (byte)(b / n);
-            float grey  = 0.299f * avgR + 0.587f * avgG + 0.114f * avgB;
-            float boost = 1.8f;
-            byte  vR    = Clamp((int)(grey + boost * (avgR - grey)), 0, 255);
-            byte  vG    = Clamp((int)(grey + boost * (avgG - grey)), 0, 255);
-            byte  vB    = Clamp((int)(grey + boost * (avgB - grey)), 0, 255);
-
-            float brightness = 0.299f * vR + 0.587f * vG + 0.114f * vB;
-            if (brightness < 80)
-            {
-                float scale = 80f / Math.Max(brightness, 1);
-                vR = Clamp((int)(vR * scale), 0, 255);
-                vG = Clamp((int)(vG * scale), 0, 255);
-                vB = Clamp((int)(vB * scale), 0, 255);
-            }
-            return WpfColor.FromRgb(vR, vG, vB);
-        }
-
-        private static byte Clamp(int v, int lo, int hi)
-            => (byte)Math.Max(lo, Math.Min(hi, v));
     }
 }

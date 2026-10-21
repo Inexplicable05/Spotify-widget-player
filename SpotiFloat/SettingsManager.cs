@@ -7,6 +7,7 @@ using System.Diagnostics;
 namespace SpotiFloat
 {
     public enum PlayerLayout { Bar = 0, Square = 1, Disk = 2 }
+    public enum AlbumColourMode { Off = 0, Title = 1, Accents = 2, Full = 3 }
 
     public class AppSettings
     {
@@ -14,9 +15,9 @@ namespace SpotiFloat
         public WidgetZOrder ZOrder { get; set; } = WidgetZOrder.Topmost;
         public bool HideOnFullscreen { get; set; } = false;
         public double Scale { get; set; } = 1.0;
-        public int ThemeIndex { get; set; } = 0; // 0: Dark, 1: Light, 2: Glass, 3: Dynamic
+        public int ThemeIndex { get; set; } = 0; // 0: Dark, 1: Light, 2: Glass
         public bool RunOnStartup { get; set; } = false;
-        public bool EnableDynamicTitleColour { get; set; } = true;
+        public AlbumColourMode AlbumColouring { get; set; } = AlbumColourMode.Off;
         public PlayerLayout Layout { get; set; } = PlayerLayout.Bar;
     }
 
@@ -34,8 +35,7 @@ namespace SpotiFloat
                 try
                 {
                     string json = File.ReadAllText(SettingsFile);
-                    var settings = JsonSerializer.Deserialize<AppSettings>(json);
-                    return settings ?? new AppSettings();
+                    return DeserializeSettings(json);
                 }
                 catch (Exception ex)
                 {
@@ -44,6 +44,25 @@ namespace SpotiFloat
                 }
             }
             return new AppSettings();
+        }
+
+        internal static AppSettings DeserializeSettings(string json)
+        {
+            var settings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Object) return settings;
+            if (!document.RootElement.TryGetProperty(nameof(AppSettings.AlbumColouring), out _))
+            {
+                settings.AlbumColouring = settings.ThemeIndex == 3 ? AlbumColourMode.Full
+                    : document.RootElement.TryGetProperty("EnableDynamicTitleColour", out var legacyTitle)
+                        && legacyTitle.ValueKind == JsonValueKind.True ? AlbumColourMode.Title : AlbumColourMode.Off;
+            }
+            if (!Enum.IsDefined(settings.AlbumColouring)) settings.AlbumColouring = AlbumColourMode.Off;
+            settings.ThemeIndex = Math.Clamp(settings.ThemeIndex, 0, 2);
+            // The former Dynamic theme used Dark as its base.
+            if (document.RootElement.TryGetProperty(nameof(AppSettings.ThemeIndex), out var oldTheme)
+                && oldTheme.TryGetInt32(out int theme) && theme == 3) settings.ThemeIndex = 0;
+            return settings;
         }
 
         public static void SaveSettings(AppSettings settings)

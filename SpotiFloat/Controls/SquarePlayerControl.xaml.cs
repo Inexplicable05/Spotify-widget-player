@@ -87,7 +87,7 @@ namespace SpotiFloat.Controls
                     RadiusX = 1, RadiusY = 1,
                     VerticalAlignment = VerticalAlignment.Bottom
                 };
-                r.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "PrimaryTextForeground");
+                r.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "PlayerVisualizerForeground");
                 Canvas.SetBottom(r, 0);
                 Canvas.SetLeft(r, i * (barW + gap));
                 VisualizerCanvas.Children.Add(r);

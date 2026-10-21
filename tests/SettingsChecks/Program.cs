@@ -1,8 +1,8 @@
 using System.IO;
 using System.Reflection;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using SpotiFloat;
@@ -11,162 +11,24 @@ using MediaState = SpotiFloat.MediaState;
 
 internal static class Program
 {
+    private static readonly string Previews = Path.Combine(AppContext.BaseDirectory, "previews");
+    private static readonly FieldInfo LastState = typeof(MainWindow).GetField("_lastState", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
     [STAThread]
     private static void Main()
     {
         var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.InitializeComponent();
         var main = new MainWindow();
+        Directory.CreateDirectory(Previews);
         try
         {
-            foreach (byte red in new byte[] { 0, 51, 102, 153, 204, 255 })
-            foreach (byte green in new byte[] { 0, 51, 102, 153, 204, 255 })
-            foreach (byte blue in new byte[] { 0, 51, 102, 153, 204, 255 })
-            {
-                var background = Color.FromRgb(red, green, blue);
-                Check(TextContrast.Ratio(TextContrast.ReadableOn(background), background) >= 4.5, "Text contrast below 4.5:1");
-                foreach (var surface in new[] { Color.FromRgb(24, 24, 24), Color.FromRgb(242, 242, 242) })
-                {
-                    var adjusted = TextContrast.AccentOn(background, surface);
-                    Check(TextContrast.Ratio(adjusted, surface) >= 4.5, "Adjusted album colour is unreadable");
-                    if (TextContrast.Ratio(background, surface) >= 4.5)
-                        Check(adjusted == background, "Already-readable album colour should not change");
-                }
-            }
-            Check(Math.Abs(TextContrast.Ratio(Colors.Black, Colors.White) - 21) < 0.001, "Incorrect contrast formula");
-            main.SwitchLayout(PlayerLayout.Bar);
-            var host = (ContentControl)main.FindName("PlayerHost");
-            Check(host.Focusable, "Player host must support keyboard context-menu access");
-            var bar = (BarPlayerControl)host.Content;
-            var title = (TextBlock)bar.FindName("TitleText");
-            var lastState = typeof(MainWindow).GetField("_lastState", BindingFlags.Instance | BindingFlags.NonPublic)!;
-            byte[] redPixel = [0, 0, 180, 255];
-            var redArtwork = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgra32, null, redPixel, 4);
-            lastState.SetValue(main, new MediaState { Art = redArtwork, Title = "Album-coloured title" });
-            main.EnableDynamicTitleColour = true;
-            foreach (int theme in new[] { 0, 1, 2 })
-            {
-                main.ApplyTheme(theme);
-                Check(!DependencyPropertyHelper.GetValueSource(title, TextBlock.ForegroundProperty).IsExpression,
-                    "Static theme did not apply album colour");
-                var accent = ((SolidColorBrush)title.Foreground).Color;
-                Check(accent.R > accent.G && accent.G == accent.B, "Red artwork lost its hue");
-                Check((title.Effect != null) == (theme == 2), "Glass halo leaked into another theme");
-            }
-            main.EnableDynamicTitleColour = false;
-            main.RefreshAppearance();
-            Check(title.Effect == null, "Toggle-off left the Glass halo behind");
-            lastState.SetValue(main, new MediaState());
-            main.ApplyTheme(1);
-            main.EnableDynamicTitleColour = true;
-            title.Foreground = Brushes.Red;
-            main.ApplyTheme(3);
-            Check(DependencyPropertyHelper.GetValueSource(title, TextBlock.ForegroundProperty).IsExpression,
-                "Dynamic theme did not restore the title resource reference");
-            foreach (var colour in new[] { Colors.Red, Colors.Green, Colors.Blue, Colors.Gray, Colors.White, Colors.Black })
-            {
-                byte[] pixels = [colour.B, colour.G, colour.R, 255];
-                var art = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgra32, null, pixels, 4);
-                lastState.SetValue(main, new MediaState { Art = art, Title = "Contrast test" });
-                main.RefreshAppearance();
-                var surface = ((SolidColorBrush)app.Resources["AppBackground"]).Color;
-                Check(TextContrast.Ratio(((SolidColorBrush)title.Foreground).Color, surface) >= 4.5, "Dynamic title is unreadable");
-                var foreground = ((SolidColorBrush)app.Resources["PrimaryTextForeground"]).Color;
-                foreach (var key in new[] { "ButtonBackground", "TooltipBackground", "SettingsPopupBackground" })
-                    Check(TextContrast.Ratio(foreground, ((SolidColorBrush)app.Resources[key]).Color) >= 4.5, $"Unreadable dynamic surface: {key}");
-            }
-            main.ApplyTheme(1);
-            main.EnableDynamicTitleColour = false;
-            title.Foreground = Brushes.Red;
-            main.RefreshAppearance();
-            Check(DependencyPropertyHelper.GetValueSource(title, TextBlock.ForegroundProperty).IsExpression, "Toggle-off left stale title colour");
-            lastState.SetValue(main, new MediaState());
-            main.ApplyTheme(3);
-            Check(DependencyPropertyHelper.GetValueSource(title, TextBlock.ForegroundProperty).IsExpression, "Missing art left stale title colour");
-            foreach (var layout in new[] { PlayerLayout.Square, PlayerLayout.Disk, PlayerLayout.Bar })
-            {
-                main.SwitchLayout(layout);
-                Check(host.ContextMenu.Items.OfType<MenuItem>().Select(x => x.Header.ToString()).SequenceEqual(new[] { "_Settings", "E_xit" }),
-                    "A player layout lost the shared menu");
-            }
-            Console.WriteLine("PASS: 216 contrast samples, 432 adjusted accents, album colour in all static themes, halo cleanup, theme transitions, and shared menu.");
-            VerifySharedThemes(main, lastState, redArtwork);
-            main.SwitchLayout(PlayerLayout.Bar);
-
-            var settings = new SettingsWindow(main) { ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = -10000 };
-            try
-            {
-                // Prevent tests from writing preferences or startup registration.
-                typeof(SettingsWindow).GetField("_isInitializing", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(settings, true);
-                var slider = (Slider)settings.FindName("ScaleSlider");
-                var input = (TextBox)settings.FindName("ScaleTextBox");
-                foreach (var value in new[] { "NaN", "Infinity", "bad", "", "9", "301", "125" })
-                {
-                    input.Text = value;
-                    input.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent));
-                    Check(double.IsFinite(slider.Value) && slider.Value >= 10 && slider.Value <= 300, "Invalid scale accepted");
-                }
-                Check(slider.Value == 125, "Editable percentage did not update size");
-                Check(((CheckBox)settings.FindName("LockCheckBox")).Content.ToString() == "Lock position", "Position label is reversed");
-                settings.Show();
-                string previews = Path.Combine(AppContext.BaseDirectory, "previews");
-                Directory.CreateDirectory(previews);
-                foreach (var (theme, name) in new[] { (0, "dark"), (1, "light"), (2, "glass"), (3, "dynamic") })
-                {
-                    if (theme == 3)
-                    {
-                        var art = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Bgra32, null, new byte[] { 120, 170, 230, 255 }, 4);
-                        lastState.SetValue(main, new MediaState { Art = art });
-                    }
-                    main.ApplyTheme(theme);
-                    ((RadioButton)settings.FindName(new[] { "ThemeDarkBtn", "ThemeLightBtn", "ThemeGlassBtn", "ThemeDynamicBtn" }[theme])).IsChecked = true;
-                    typeof(SettingsWindow).GetMethod("UpdateDependentControls", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(settings, null);
-                    Check(((CheckBox)settings.FindName("DynamicTitleColourCheckBox")).IsEnabled == (theme != 3),
-                        "Album-colour option must be available in Light, Dark, and Glass for Bar");
-                    foreach (var layoutName in new[] { "LayoutSquareBtn", "LayoutDiskBtn", "LayoutBarBtn" })
-                    {
-                        ((RadioButton)settings.FindName(layoutName)).IsChecked = true;
-                        typeof(SettingsWindow).GetMethod("UpdateDependentControls", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(settings, null);
-                        Check(((CheckBox)settings.FindName("DynamicTitleColourCheckBox")).IsEnabled == (theme != 3), "Title option incorrectly restricted by layout");
-                    }
-                    settings.UpdateLayout();
-                    SavePreview(settings, Path.Combine(previews, name + ".png"));
-                }
-                ((Expander)settings.FindName("AdvancedExpander")).IsExpanded = true;
-                settings.UpdateLayout();
-                SavePreview(settings, Path.Combine(previews, "advanced.png"));
-                Check(settings.ActualHeight <= settings.MaxHeight, "Settings exceeds available height");
-                settings.MaxHeight = 420;
-                settings.UpdateLayout();
-                var scroll = (ScrollViewer)settings.FindName("SettingsScroller");
-                Check(scroll.ScrollableHeight > 0, "Small displays must allow scrolling to all settings");
-                scroll.ScrollToEnd();
-                settings.UpdateLayout();
-                SavePreview(settings, Path.Combine(previews, "small-screen.png"));
-                Console.WriteLine($"PASS: percent input validation, lock label, and settings rendered in four themes. Previews: {previews}");
-            }
-            finally { settings.Close(); }
-
-            main.SwitchLayout(PlayerLayout.Bar);
-            bar = (BarPlayerControl)host.Content;
-            var previewState = new MediaState { Art = redArtwork, Title = "Album-coloured title", Artist = "Glass contrast preview" };
-            lastState.SetValue(main, previewState);
-            bar.UpdateMediaState(previewState);
-            main.EnableDynamicTitleColour = true;
-            main.ApplyTheme(2);
-            bar.AppScaleTransform!.ScaleX = bar.AppScaleTransform.ScaleY = 1;
-            host.Content = null;
-            var backdrop = new Border { Width = 700, Height = 160, Child = bar };
-            bar.HorizontalAlignment = HorizontalAlignment.Center;
-            bar.VerticalAlignment = VerticalAlignment.Center;
-            foreach (var (background, name) in new[] { (Brushes.White, "glass-title-light-backdrop"), (Brushes.Black, "glass-title-dark-backdrop") })
-            {
-                backdrop.Background = background;
-                backdrop.Measure(new Size(700, 160));
-                backdrop.Arrange(new Rect(0, 0, 700, 160));
-                backdrop.UpdateLayout();
-                SavePreview(backdrop, Path.Combine(AppContext.BaseDirectory, "previews", name + ".png"));
-            }
+            VerifyContrast();
+            VerifySettingsMigration();
+            VerifyExtraction();
+            VerifyButtonContrast(main);
+            VerifyPlayers(main);
+            VerifySettings(main);
         }
         finally
         {
@@ -181,89 +43,273 @@ internal static class Program
         if (!condition) throw new Exception(message);
     }
 
-    private static void VerifySharedThemes(MainWindow main, FieldInfo lastState, BitmapSource artwork)
+    private static Color BrushColour(FrameworkElement element, string key) => ((SolidColorBrush)element.FindResource(key)).Color;
+
+    private static BitmapSource Artwork(params Color[] colours)
+    {
+        var pixels = colours.SelectMany(c => new byte[] { c.B, c.G, c.R, c.A }).ToArray();
+        return BitmapSource.Create(colours.Length, 1, 96, 96, PixelFormats.Bgra32, null, pixels, colours.Length * 4);
+    }
+
+    private static void VerifyContrast()
+    {
+        foreach (byte red in new byte[] { 0, 51, 102, 153, 204, 255 })
+        foreach (byte green in new byte[] { 0, 51, 102, 153, 204, 255 })
+        foreach (byte blue in new byte[] { 0, 51, 102, 153, 204, 255 })
+        {
+            var background = Color.FromRgb(red, green, blue);
+            Check(TextContrast.Ratio(TextContrast.ReadableOn(background), background) >= 4.5, "Neutral contrast below 4.5:1");
+            foreach (var surface in new[] { Color.FromRgb(24, 24, 24), Color.FromRgb(242, 242, 242) })
+            {
+                var adjusted = TextContrast.AccentOn(background, surface);
+                Check(TextContrast.Ratio(adjusted, surface) >= 4.5, "Adjusted accent is unreadable");
+                if (TextContrast.Ratio(background, surface) >= 4.5)
+                    Check(adjusted == background, "Already-readable artwork colour changed");
+            }
+        }
+        Check(Math.Abs(TextContrast.Ratio(Colors.Black, Colors.White) - 21) < 0.001, "Incorrect contrast formula");
+        Console.WriteLine("PASS: 216 neutral contrast and 432 accent contrast samples; readable accents stay unchanged.");
+    }
+
+    private static void VerifySettingsMigration()
+    {
+        var deserialize = typeof(SettingsManager).GetMethod("DeserializeSettings", BindingFlags.Static | BindingFlags.NonPublic)!;
+        foreach (var (json, theme, mode) in new[]
+        {
+            ("{}", 0, AlbumColourMode.Off),
+            ("{\"ThemeIndex\":3,\"EnableDynamicTitleColour\":false}", 0, AlbumColourMode.Full),
+            ("{\"ThemeIndex\":1,\"EnableDynamicTitleColour\":true}", 1, AlbumColourMode.Title),
+            ("{\"ThemeIndex\":2,\"EnableDynamicTitleColour\":false}", 2, AlbumColourMode.Off),
+            ("{\"ThemeIndex\":2,\"AlbumColouring\":2,\"EnableDynamicTitleColour\":true}", 2, AlbumColourMode.Accents),
+            ("{\"ThemeIndex\":99,\"AlbumColouring\":99}", 2, AlbumColourMode.Off)
+        })
+        {
+            var settings = (AppSettings)deserialize.Invoke(null, new object[] { json })!;
+            Check(settings.ThemeIndex == theme && settings.AlbumColouring == mode, "Incorrect settings migration: " + json);
+            string saved = JsonSerializer.Serialize(settings);
+            Check(!saved.Contains("EnableDynamicTitleColour"), "Legacy title flag is still persisted");
+            var reloaded = (AppSettings)deserialize.Invoke(null, new object[] { saved })!;
+            Check(reloaded.AlbumColouring == mode && reloaded.ThemeIndex == theme, "Settings round trip changed appearance");
+        }
+        Check(new AppSettings().AlbumColouring == AlbumColourMode.Off, "New users must default to Off");
+        Console.WriteLine("PASS: legacy Dynamic/title settings migration, new defaults, invalid mode and JSON round trips (no file/registry writes).");
+    }
+
+    private static void VerifyExtraction()
+    {
+        foreach (var colour in new[] { Colors.Red, Colors.Blue, Colors.Black, Colors.White, Colors.Gray, Color.FromRgb(244, 84, 65) })
+            Check(AlbumPalette.Extract(Artwork(colour)) == colour, "Solid artwork colour was modified");
+        var sample = Artwork(Colors.Red, Colors.Red, Colors.Red, Colors.Blue, Colors.White);
+        Check(AlbumPalette.Extract(sample) == Colors.Red, "Palette averaged colours instead of selecting the dominant group");
+        Check(AlbumPalette.Extract(Artwork(Colors.Transparent, Colors.Blue)) == Colors.Blue, "Transparent pixels contaminated palette");
+        var rgb = BitmapSource.Create(1, 1, 96, 96, PixelFormats.Rgb24, null, new byte[] { 210, 30, 60 }, 3);
+        Check(AlbumPalette.Extract(rgb) == Color.FromRgb(210, 30, 60), "Non-BGRA image decoded incorrectly");
+        Console.WriteLine("PASS: original solid colours, dominant group, transparency and RGB24 palette extraction.");
+    }
+
+    private static void VerifyButtonContrast(MainWindow main)
+    {
+        main.SwitchLayout(PlayerLayout.Bar);
+        var host = (ContentControl)main.FindName("PlayerHost");
+        var player = (BarPlayerControl)host.Content!;
+        host.Content = null;
+        player.AppScaleTransform!.ScaleX = player.AppScaleTransform.ScaleY = 1;
+        var window = new Window { Content = player, SizeToContent = SizeToContent.WidthAndHeight,
+            WindowStyle = WindowStyle.None, ShowActivated = false, Left = -10000, Top = -10000 };
+        try
+        {
+            window.Show();
+            main.AlbumColouring = AlbumColourMode.Full;
+            foreach (int theme in new[] { 0, 1, 2 })
+            {
+                main.ApplyTheme(theme);
+                foreach (byte red in new byte[] { 0, 51, 102, 153, 204, 255 })
+                foreach (byte green in new byte[] { 0, 51, 102, 153, 204, 255 })
+                foreach (byte blue in new byte[] { 0, 51, 102, 153, 204, 255 })
+                {
+                    var seed = Color.FromRgb(red, green, blue);
+                    var state = new MediaState { Art = Artwork(seed), Title = "Button contrast", Artist = "Full album colouring" };
+                    LastState.SetValue(main, state);
+                    player.UpdateMediaState(state);
+                    main.RefreshAppearance();
+                    var body = BrushColour(player, "AppBackground");
+                    var circle = BrushColour(player, "ButtonBackground");
+                    var icon = BrushColour(player, "ButtonIconForeground");
+                    Check(circle.A == 255, "Full Bar circles must be independent of wallpaper beneath the button");
+                    Check(TextContrast.Ratio(icon, circle) >= 4.5, "Icon/circle contrast failed");
+                    foreach (var backdrop in new[] { Colors.Black, Colors.White })
+                    {
+                        byte Composite(byte channel, byte behind) => (byte)Math.Round(channel * body.A / 255.0 + behind * (1 - body.A / 255.0));
+                        var visibleBody = Color.FromRgb(Composite(body.R, backdrop.R), Composite(body.G, backdrop.G), Composite(body.B, backdrop.B));
+                        Check(TextContrast.Ratio(circle, visibleBody) >= 2,
+                            $"Circle/body separation failed: theme {theme}, seed {seed}, backdrop {backdrop}");
+                    }
+                    foreach (string name in new[] { "BtnPrev", "BtnPlayPause", "BtnNext" })
+                    {
+                        var button = (Button)player.FindName(name);
+                        var glyph = (System.Windows.Shapes.Path)button.Content;
+                        Check(((SolidColorBrush)button.Background).Color == circle && ((SolidColorBrush)glyph.Fill).Color == icon,
+                            "A media button did not receive the container/icon colour pair");
+                        Check(((SolidColorBrush)((Border)VisualTreeHelper.GetChild(button, 0)).Background).Color == circle,
+                            "Button template ignored the adaptive container");
+                    }
+                    if (seed == Colors.Black || seed == Colors.Yellow || seed == Colors.White)
+                    {
+                        foreach (var (backdrop, label) in new[] { (Brushes.Black, "black"), (Brushes.White, "white") })
+                        {
+                            window.Background = backdrop;
+                            window.UpdateLayout();
+                            SavePreview(window, Path.Combine(Previews, $"bar-buttons-{theme}-{red}-{green}-{blue}-{label}.png"));
+                        }
+                    }
+                }
+            }
+            main.AlbumColouring = AlbumColourMode.Title;
+            main.RefreshAppearance();
+            Check(!player.Resources.Contains("ButtonBackground") && !player.Resources.Contains("ButtonIconForeground"),
+                "Leaving Full left adaptive button colours behind");
+        }
+        finally { window.Close(); }
+        Console.WriteLine("PASS: 648 Full Bar palettes; actual circle/body separation >=2:1 on black/white backdrops, icon/circle contrast >=4.5:1, all three templates and mode reset.");
+    }
+
+    private static void VerifyPlayers(MainWindow main)
     {
         var host = (ContentControl)main.FindName("PlayerHost");
-        var state = new MediaState { Art = artwork, Title = "Album-coloured title", Artist = "Shared theme check", Position = 45, Duration = 180 };
-        string previews = Path.Combine(AppContext.BaseDirectory, "previews");
-        Directory.CreateDirectory(previews);
-        foreach (var layout in new[] { PlayerLayout.Square, PlayerLayout.Disk })
+        Check(host.Focusable, "Player host lost keyboard context-menu access");
+        var red = Artwork(Color.FromRgb(244, 84, 65));
+        var blue = Artwork(Color.FromRgb(40, 120, 245));
+        foreach (var layout in Enum.GetValues<PlayerLayout>())
         {
             main.SwitchLayout(layout);
             var player = (PlayerControlBase)host.Content!;
             host.Content = null;
             player.AppScaleTransform!.ScaleX = player.AppScaleTransform.ScaleY = 1;
             var window = new Window { Content = player, SizeToContent = SizeToContent.WidthAndHeight,
-                WindowStyle = WindowStyle.None, ShowActivated = false,
-                Left = -10000, Top = -10000, Background = Brushes.DimGray };
+                WindowStyle = WindowStyle.None, ShowActivated = false, Left = -10000, Top = -10000, Background = Brushes.DimGray };
             try
             {
                 window.Show();
-                lastState.SetValue(main, state);
-                player.UpdateMediaState(state);
-                var image = (Image)player.FindName("AlbumArtImage");
-                image.BeginAnimation(UIElement.OpacityProperty, null);
-                image.Opacity = 1;
+                Check(host.ContextMenu.Items.OfType<MenuItem>().Select(x => x.Header.ToString()).SequenceEqual(new[] { "_Settings", "E_xit" }), "Shared menu changed");
                 var title = (TextBlock)player.FindName("TitleText");
                 var icon = (System.Windows.Shapes.Path)player.FindName("PlayPauseIcon");
-                var hover = (UIElement)player.FindName("HoverGroup");
-                player.GetType().GetMethod("ShowHover", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(player, null);
-                hover.BeginAnimation(UIElement.OpacityProperty, null);
-                hover.Opacity = 1;
-                if (player.FindName("HoverOverlay") is UIElement overlay)
+                foreach (int theme in new[] { 0, 1, 2 })
                 {
-                    overlay.BeginAnimation(UIElement.OpacityProperty, null);
-                    overlay.Opacity = 1;
-                }
-                foreach (var (theme, name) in new[] { (0, "dark"), (1, "light"), (2, "glass"), (3, "dynamic") })
-                {
-                    main.EnableDynamicTitleColour = true;
+                    main.AlbumColouring = AlbumColourMode.Off;
                     main.ApplyTheme(theme);
-                    window.UpdateLayout();
-                    Check(((SolidColorBrush)icon.Fill).Color == ((SolidColorBrush)Application.Current.Resources["ButtonIconForeground"]).Color,
-                        $"{layout} icon did not follow {name} theme");
-                    Brush progress = layout == PlayerLayout.Square
-                        ? ((Border)player.FindName("HoverProgressFill")).Background
-                        : ((System.Windows.Shapes.Path)((Canvas)player.FindName("ArcCanvas")).Children[1]).Stroke;
-                    Check(((SolidColorBrush)progress).Color == ((SolidColorBrush)Application.Current.Resources["SliderThumb"]).Color,
-                        $"{layout} progress did not follow {name} theme");
-                    var foreground = ((SolidColorBrush)Application.Current.Resources["PrimaryTextForeground"]).Color;
-                    if (layout == PlayerLayout.Square)
+                    var settingsSurface = (Brush)Application.Current.Resources["SettingsPopupBackground"];
+                    var settingsText = (Brush)Application.Current.Resources["PrimaryTextForeground"];
+                    foreach (var mode in Enum.GetValues<AlbumColourMode>())
                     {
-                        foreach (System.Windows.Shapes.Rectangle rectangle in ((Canvas)player.FindName("VisualizerCanvas")).Children)
-                            Check(((SolidColorBrush)rectangle.Fill).Color == foreground, "Square visualizer ignored theme");
+                        foreach (var artwork in new[] { red, blue })
+                        {
+                            var state = new MediaState { Art = artwork, Title = "Album colouring", Artist = "Shared palette", Position = 45, Duration = 180 };
+                            LastState.SetValue(main, state);
+                            player.UpdateMediaState(state);
+                            main.AlbumColouring = mode;
+                            main.RefreshAppearance();
+                            player.GetType().GetMethod("ShowHover", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(player, null);
+                            foreach (string name in new[] { "HoverGroup", "HoverOverlay" })
+                                if (player.FindName(name) is UIElement overlay) { overlay.BeginAnimation(UIElement.OpacityProperty, null); overlay.Opacity = 1; }
+                            window.UpdateLayout();
+                            Check(ReferenceEquals(settingsSurface, Application.Current.Resources["SettingsPopupBackground"])
+                                && ReferenceEquals(settingsText, Application.Current.Resources["PrimaryTextForeground"]), "Album colouring leaked into Settings");
+                            Check(ReferenceEquals(((Image)player.FindName("AlbumArtImage")).Source, artwork), "Album colouring replaced artwork");
+                            Check(DependencyPropertyHelper.GetValueSource(title, TextBlock.ForegroundProperty).IsExpression == (mode == AlbumColourMode.Off), "Title mode not respected");
+                            Check((title.Effect != null) == (theme == 2 && mode != AlbumColourMode.Off), "Glass title halo leaked");
+                            var expected = mode >= AlbumColourMode.Accents
+                                ? TextContrast.AccentOn(AlbumPalette.Extract(artwork), AlbumPalette.BackgroundFor(player, theme))
+                                : ((SolidColorBrush)Application.Current.Resources["ButtonIconForeground"]).Color;
+                            if (layout == PlayerLayout.Bar && mode == AlbumColourMode.Full)
+                                Check(TextContrast.Ratio(((SolidColorBrush)icon.Fill).Color, BrushColour(player, "ButtonBackground")) >= 4.5,
+                                    "Bar icon must contrast with its actual circle fill");
+                            else Check(((SolidColorBrush)icon.Fill).Color == expected, "Media icons ignored colouring mode");
+                            Check(BrushColour(player, "SliderThumb") == expected, "Progress ignored colouring mode");
+                            Brush progress = layout == PlayerLayout.Bar ? (Brush)player.FindResource("SliderThumb")
+                                : layout == PlayerLayout.Square ? ((Border)player.FindName("HoverProgressFill")).Background
+                                : ((System.Windows.Shapes.Path)((Canvas)player.FindName("ArcCanvas")).Children[1]).Stroke;
+                            Check(((SolidColorBrush)progress).Color == expected, "Rendered progress did not update");
+                            if (mode != AlbumColourMode.Off)
+                                Check(TextContrast.Ratio(((SolidColorBrush)title.Foreground).Color, AlbumPalette.BackgroundFor(player, theme)) >= 4.5, "Title below contrast target");
+                            if (layout == PlayerLayout.Square)
+                                foreach (System.Windows.Shapes.Rectangle rectangle in ((Canvas)player.FindName("VisualizerCanvas")).Children)
+                                    Check(((SolidColorBrush)rectangle.Fill).Color == BrushColour(player, "PlayerVisualizerForeground"), "Square visualizer ignored mode");
+                            if (layout == PlayerLayout.Disk)
+                                Check(((SolidColorBrush)((System.Windows.Shapes.Polyline)((Canvas)player.FindName("WaveformCanvas")).Children[0]).Stroke).Color == BrushColour(player, "PlayerVisualizerForeground"), "Disk waveform ignored mode");
+                            Check(player.Resources.Contains("AppBackground") == (mode == AlbumColourMode.Full), "Player surface changed in wrong mode");
+                            if (mode == AlbumColourMode.Full && theme == 2)
+                                Check(BrushColour(player, "AppBackground").A == 64 && ((Color)player.FindResource("PlayerOverlayColour")).A == 204, "Full made Glass opaque");
+                            SavePreview(window, Path.Combine(Previews, $"{layout}-{theme}-{mode}-{(ReferenceEquals(artwork, red) ? "red" : "blue")}.png"));
+                        }
                     }
-                    else
-                    {
-                        var wave = (System.Windows.Shapes.Polyline)((Canvas)player.FindName("WaveformCanvas")).Children[0];
-                        Check(((SolidColorBrush)wave.Stroke).Color == foreground, "Disk waveform ignored theme");
-                    }
-                    Check(DependencyPropertyHelper.GetValueSource(title, TextBlock.ForegroundProperty).IsExpression == (theme == 3),
-                        $"{layout} album title did not follow {name} theme");
-                    if (theme != 3)
-                    {
-                        var accent = ((SolidColorBrush)title.Foreground).Color;
-                        Check(accent.R > accent.G && accent.G == accent.B, $"{layout} lost the album title hue");
-                    }
-                    SavePreview(window, Path.Combine(previews, $"{layout.ToString().ToLowerInvariant()}-{name}.png"));
-                    main.EnableDynamicTitleColour = false;
+                    LastState.SetValue(main, new MediaState());
                     main.RefreshAppearance();
-                    Check(DependencyPropertyHelper.GetValueSource(title, TextBlock.ForegroundProperty).IsExpression && title.Effect == null,
-                        $"{layout} title toggle did not reset appearance");
+                    Check(!player.Resources.Contains("AppBackground") && !player.Resources.Contains("SliderThumb") && !player.Resources.Contains("PlayerVisualizerForeground")
+                        && title.Effect == null && DependencyPropertyHelper.GetValueSource(title, TextBlock.ForegroundProperty).IsExpression,
+                        "Missing artwork left stale colours");
                 }
-                if (layout == PlayerLayout.Square)
-                {
-                    main.ApplyTheme(0);
-                    VerifySquareProgress((SquarePlayerControl)player, window, previews);
-                }
-                lastState.SetValue(main, new MediaState());
-                main.EnableDynamicTitleColour = true;
-                main.RefreshAppearance();
-                Check(DependencyPropertyHelper.GetValueSource(title, TextBlock.ForegroundProperty).IsExpression, $"{layout} missing artwork left an accent");
+                if (layout == PlayerLayout.Square) VerifySquareProgress((SquarePlayerControl)player, window, Previews);
             }
             finally { window.Close(); }
         }
-        Console.WriteLine("PASS: live theme changes on existing Square/Disk icons, progress and titles; toggle and missing-art reset. Eight player previews rendered.");
+        // Switch layouts while Full is already active, not just after setting it on a loaded control.
+        LastState.SetValue(main, new MediaState { Art = red });
+        main.AlbumColouring = AlbumColourMode.Full;
+        foreach (var layout in Enum.GetValues<PlayerLayout>())
+        {
+            main.SwitchLayout(layout);
+            Check(((FrameworkElement)host.Content!).Resources.Contains("AppBackground"), "Layout switch lost Full colouring");
+        }
+        Console.WriteLine("PASS: all 36 layout/theme/mode combinations with two artworks, live updates, reset, shared menu and player-scoped resources. 72 previews rendered.");
+    }
+
+    private static void VerifySettings(MainWindow main)
+    {
+        var settings = new SettingsWindow(main) { ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -10000, Top = -10000 };
+        try
+        {
+            var load = typeof(SettingsWindow).GetMethod("LoadControls", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            load.Invoke(settings, new object[] { new AppSettings() });
+            // Prevent tests from writing preferences or startup registration.
+            typeof(SettingsWindow).GetField("_isInitializing", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(settings, true);
+            var slider = (Slider)settings.FindName("ScaleSlider");
+            var input = (TextBox)settings.FindName("ScaleTextBox");
+            foreach (var value in new[] { "NaN", "Infinity", "bad", "", "9", "301", "125" })
+            {
+                input.Text = value;
+                input.RaiseEvent(new RoutedEventArgs(UIElement.LostFocusEvent));
+                Check(double.IsFinite(slider.Value) && slider.Value >= 10 && slider.Value <= 300, "Invalid scale accepted");
+            }
+            Check(slider.Value == 125, "Editable size failed");
+            Check(settings.FindName("ThemeDynamicBtn") == null && settings.FindName("DynamicTitleColourCheckBox") == null, "Old colour controls remain");
+            Check(((CheckBox)settings.FindName("LockCheckBox")).Content.ToString() == "Lock position", "Position label reversed");
+            settings.Show();
+            foreach (int theme in new[] { 0, 1, 2 })
+            foreach (var (mode, name) in new[] { (AlbumColourMode.Off, "ColourOffBtn"), (AlbumColourMode.Title, "ColourTitleBtn"), (AlbumColourMode.Accents, "ColourAccentsBtn"), (AlbumColourMode.Full, "ColourFullBtn") })
+            {
+                main.ApplyTheme(theme);
+                ((RadioButton)settings.FindName(new[] { "ThemeDarkBtn", "ThemeLightBtn", "ThemeGlassBtn" }[theme])).IsChecked = true;
+                var choice = (RadioButton)settings.FindName(name);
+                choice.IsChecked = true;
+                typeof(SettingsWindow).GetMethod("UpdateDependentControls", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(settings, null);
+                Check(choice.IsEnabled && choice.GroupName == "AlbumColour", "Mode unavailable");
+                settings.UpdateLayout();
+                Check(((TextBlock)settings.FindName("AlbumColourHint")).ActualHeight > 0, "Mode description missing");
+                SavePreview(settings, Path.Combine(Previews, $"settings-{theme}-{mode}.png"));
+            }
+            ((Expander)settings.FindName("AdvancedExpander")).IsExpanded = true;
+            settings.UpdateLayout();
+            Check(settings.ActualHeight <= settings.MaxHeight, "Settings exceeds screen height");
+            settings.MaxHeight = 420;
+            settings.UpdateLayout();
+            var scroll = (ScrollViewer)settings.FindName("SettingsScroller");
+            Check(scroll.ScrollableHeight > 0, "Small displays cannot reach all settings");
+            scroll.ScrollToEnd();
+            settings.UpdateLayout();
+            SavePreview(settings, Path.Combine(Previews, "settings-small-screen.png"));
+            Console.WriteLine("PASS: four mode choices in three themes, size validation and short-screen scrolling; no preference/registry writes.");
+        }
+        finally { settings.Close(); }
     }
 
     private static void VerifySquareProgress(SquarePlayerControl player, Window window, string previews)
