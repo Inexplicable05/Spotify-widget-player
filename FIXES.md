@@ -177,12 +177,12 @@
 - **Verification:** Automated WPF checks passed for all 36 layout/theme/mode combinations with two artwork colours, rendered resource updates, missing-art fallback, layout switching, Glass alpha and title halo cleanup, and Settings resource isolation. Passed 216 neutral and 432 accent contrast samples; original solid/dominant artwork colours, transparency and RGB24 conversion; legacy settings migration and JSON round trips. Existing seek/visualizer alignment, menus, scale validation and scrolling checks passed. Inspected settings and Bar/Square/Disk renders, correcting Glass hover contrast to account for its tinted backdrop. Final Release build passed with 0 warnings/errors; diff whitespace check passed.
 - **Limits:** Readability can require lightening/darkening accents; Full intentionally derives theme-appropriate surface tints. Transparent Glass and idle controls over artwork cannot guarantee contrast against every background. Real album selection and saving/reopening Settings remain for user testing.
 - **User acceptance:** Pending.
-- **Commit:** None.
+- **Commit:** `930e47a` - Add album-colouring modes and adaptive Bar button contrast.
 
 ### P014 - Bar media-button circles lose separation from the body in Full colouring
 
 - **Reported:** 10/21. User supplied Dark/Light screenshots of monochrome and yellow artwork; circles can disappear in one theme while remaining visible in another. User also observes similar failures in Glass.
-- **Status:** Fixed - user accepted on 10/21; commit and push authorized.
+- **Status:** Fixed - user accepted on 10/21; committed. Push authorized.
 - **Cause:** Full uses a body mixed from 30% album seed and 70% theme base, but ButtonBackground is the same seed at only 24/255 opacity. The composited circle can be almost identical to the body. Bar's template has no visible outline. Dark and Glass share the same dark palette base and button tint, while Glass additionally depends on the wallpaper. Current icon contrast is calculated against the body rather than the composited button fill; tests did not check circle/body separation or icon/button-fill contrast.
 - **Evidence:** Calculating the existing formulas with a black seed gives approximately 1.015:1 circle/body contrast in Dark; a yellow seed gives approximately 1.002:1 in Light. These are synthetic examples, not measured screenshot values.
 - **Options:** A: Give button containers an adaptive tonal shade with deliberate separation from the body, then calculate icon contrast against the actual button fill (recommended). B: Keep subtle fills but add a contrasting outline. C: Intentionally use a consistent borderless icon style. Restricting themes would remove user choice without correcting the palette roles.
@@ -193,4 +193,4 @@
 - **Limit:** The 2:1 circle separation is a design target; icons use 4.5:1. Glass checks cover black and white backdrops, but arbitrary intermediate colours or patterns can still reduce circle/body separation. Opaque circles keep their internal icon contrast independent of the wallpaper. Live appearance remains for user acceptance.
 - **References:** [Material container/on-container roles](https://m3.material.io/m3/pages/color-roles?s=m3), [W3C non-text contrast](https://www.w3.org/WAI/WCAG22/understanding/non-text-contrast.html). W3C does not require a visible button boundary when its icon already identifies the control; keeping these circles visible is an intentional design requirement here.
 - **User acceptance:** Approved on 10/21 ("mark it as fixed, push it").
-- **Commit:** None.
+- **Commit:** `930e47a` - Add album-colouring modes and adaptive Bar button contrast.
