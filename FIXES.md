@@ -57,10 +57,10 @@
 - **Cause:** Visualizer canvas had a 7-unit bottom margin above the 3-unit idle progress rail, leaving a 4-unit gap. Bars already anchor to the canvas bottom.
 - **Follow-up 10/21:** User screenshot still showed a gap. Process inspection confirmed the running app was `bin/SquareMarkerCheck/SpotiFloat.exe`, the build before this adjustment. Corrected build is `bin/SquareVisualizerCheck/SpotiFloat.exe`. Added checks for every individual bar's bottom edge meeting the rail top, not only the canvas baseline. No further position adjustment: lowering the corrected baseline again would overlap the rail.
 - **Implementation:** Reduced the existing canvas bottom margin to 3 units so its baseline meets the idle rail top. Reused the current WPF layout; no audio or seeking changes.
-- **Status:** Fixed - user accepted on 10/21; not yet committed.
+- **Status:** Fixed - user accepted on 10/21; committed.
 - **Verification:** WPF layout checks passed for visualizer baseline touching the idle rail at 100% and 300% scale. Existing progress/theme/settings checks passed. Release build passed with 0 warnings/errors. User confirmed the corrected build's live appearance. Additional per-bar checks were rerun successfully before committing: every bar bottom meets the rail top at 100% and 300% scale.
 - **User acceptance:** Approved on 10/21 ("perfect").
-- **Commit:** None.
+- **Commit:** `0f63a00` - Standardize player themes and settings; refine Square progress UI.
 
 ### P009 - Album-coloured title must work in Light, Dark, and Glass
 
@@ -72,7 +72,7 @@
 - **Verification:** Tests passed for 432 adjusted accents and preservation of already-readable colours, red artwork hue in all three static themes, option availability, halo cleanup, Dynamic transitions, and existing settings checks. Inspected Glass title renders on white and black backdrops. Separate-output Release build passed with 0 warnings/errors. The older SettingsCheck executable was locked by the running widget; new build is in `SpotiFloat/bin/AlbumTitleCheck`.
 - **Limit:** Glass remains transparent; the subtle halo is a readability aid, not a guarantee against every wallpaper. User visual acceptance on actual wallpaper remains pending.
 - **User acceptance:** Pending.
-- **Commit:** None.
+- **Commit:** `0f63a00` - Standardize player themes and settings; refine Square progress UI.
 
 ### P004 - Browser media thumbnails look blurry compared with album artwork
 
@@ -111,7 +111,7 @@
 - **Implementation:** PlayerHost now has Settings / Exit menu entries wired to the existing handlers and is focusable for keyboard access. Menu belongs to the host, so switching layouts keeps it.
 - **Verification:** WPF checks confirm menu entries on Bar, Square, and Disk and a focusable host. Live right-click, keyboard invocation, seeking, and dragging remain for user testing.
 - **User acceptance:** Pending.
-- **Commit:** None.
+- **Commit:** `0f63a00` - Standardize player themes and settings; refine Square progress UI.
 
 ### P007 - Settings panel is visually bulky and inconsistent
 
@@ -124,7 +124,7 @@
 - **Verification:** WPF checks passed for finite/clamped percentage input, Lock position label, four theme renders, and scrolling on a short window. Visually inspected Dark, Light, Glass, Dynamic, expanded Advanced, and short-screen previews. Test harness suppresses preference/registry writes. Saving/reopening settings and keyboard interaction need user testing.
 - **Reference:** [Fluent layout guidance](https://fluent2.microsoft.design/layout).
 - **User acceptance:** Pending.
-- **Commit:** None.
+- **Commit:** `0f63a00` - Standardize player themes and settings; refine Square progress UI.
 
 ### P008 - Old album accent title persists after switching to Dynamic theme
 
@@ -137,7 +137,7 @@
 - **Verification:** WPF checks passed for 216 black/white contrast samples, known 21:1 black/white ratio, red local-title to Dynamic transition, six artwork colours, dynamic control surfaces, toggle-off, missing artwork, and layout changes. Release build passed with 0 warnings/errors; diff whitespace checks passed. User playback/theme-transition acceptance remains pending.
 - **References:** [WPF property precedence](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/properties/dependency-property-value-precedence), [WCAG text contrast](https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html).
 - **User acceptance:** Pending.
-- **Commit:** None.
+- **Commit:** `0f63a00` - Standardize player themes and settings; refine Square progress UI.
 
 ### P010 - Square and Disk ignore themes and album-coloured titles
 
@@ -149,7 +149,7 @@
 - **Reference:** [WPF reusable styles and dynamic resources](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/systems/xaml-resources-overview).
 - **Verification:** Release build passed with 0 warnings/errors. WPF checks switch themes on already-created Square/Disk controls and verify icon, progress, visualizer, waveform, title, toggle-off, and missing-art behaviour. Settings option availability checked for every layout. Existing theme/contrast/input tests passed. Inspected Square/Disk hover renders in Light/Dark and Dynamic; eight player previews generated.
 - **User acceptance:** Pending. Test all four themes with each layout open, plus album-title toggle and track changes.
-- **Commit:** None.
+- **Commit:** `0f63a00` - Standardize player themes and settings; refine Square progress UI.
 
 ### P011 - Square progress bar is visually heavy and cramped at the card edge
 
@@ -164,4 +164,4 @@
 - **Implementation:** Idle/hover tracks span the full width flush with the bottom edge, at 3/4 units high. Replaced the circular knob with an 8-by-4 rounded marker, aligned vertically with the hover rail and horizontally centred on its fill endpoint. Removed the independent endpoint clamp and marker shadow. Marker and rail share the existing rounded card clip, so the marker naturally disappears at the extreme endpoints rather than being shifted away from the actual position. The 24-unit invisible hit area and full-width seeking remain. Compact timestamp stays inside card edges and clear of the artist/title group. Tooltip hides when leaving the seek area except during active dragging. Existing shared theme resources and RequestSeek remain in use.
 - **Verification:** WPF tests passed for bottom-flush/full-width rail geometry, exact marker/rail centre alignment and marker/fill endpoint alignment at 0/5/50/95/100%, at 100% and 300% scale, including shared rounded clipping, out-of-range dragging and tooltip dismissal. Inspected the corrected 300% near-end preview. Other theme/title/settings checks passed. Release build passed with 0 warnings/errors; diff whitespace checks passed. Live pointer/dragging acceptance remains pending.
 - **User acceptance:** Pending.
-- **Commit:** None.
+- **Commit:** `0f63a00` - Standardize player themes and settings; refine Square progress UI.
